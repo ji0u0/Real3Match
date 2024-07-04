@@ -291,6 +291,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 890731860}
+  - component: {fileID: 890731861}
   m_Layer: 0
   m_Name: ObjectPoolSystem
   m_TagString: Untagged
@@ -307,12 +308,33 @@ Transform:
   m_GameObject: {fileID: 890731859}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 2.8183262, y: -0.78602284, z: 0.0051885704}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &890731861
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 890731859}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e1e6c64bf2269ac4a8c4d0aaa26361a4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  poolSize: 100
+  dotPrefabs:
+  - {fileID: 6804130996459068201, guid: f394f1d1f3b8f24448bf6f153c40ee43, type: 3}
+  - {fileID: 2521501365592973870, guid: 11ad461d9681d7e42a4cab3e927e7a83, type: 3}
+  - {fileID: 8175064749107916915, guid: 9425e97c7d62589429ba6d78fd39054f, type: 3}
+  - {fileID: 7241418709431192351, guid: 1c07a55e73b9d6b41b1c7e3b47e7e19f, type: 3}
+  - {fileID: 8579488614922212117, guid: a9e359417e0971c47a8b6a8363018eaf, type: 3}
+  - {fileID: 6967427955554585460, guid: 6d19943159e1b5743b874e4989eb2bc3, type: 3}
+  - {fileID: 6294343275524512779, guid: 00d2c5e6f24babc47bab4e18a275ec6f, type: 3}
 --- !u!1 &1306533518
 GameObject:
   m_ObjectHideFlags: 0
@@ -587,14 +609,7 @@ MonoBehaviour:
   width: 7
   height: 10
   currentState: 1
-  dotType:
-  - {fileID: 6804130996459068201, guid: f394f1d1f3b8f24448bf6f153c40ee43, type: 3}
-  - {fileID: 2521501365592973870, guid: 11ad461d9681d7e42a4cab3e927e7a83, type: 3}
-  - {fileID: 8175064749107916915, guid: 9425e97c7d62589429ba6d78fd39054f, type: 3}
-  - {fileID: 7241418709431192351, guid: 1c07a55e73b9d6b41b1c7e3b47e7e19f, type: 3}
-  - {fileID: 8579488614922212117, guid: a9e359417e0971c47a8b6a8363018eaf, type: 3}
-  - {fileID: 6967427955554585460, guid: 6d19943159e1b5743b874e4989eb2bc3, type: 3}
-  - {fileID: 6294343275524512779, guid: 00d2c5e6f24babc47bab4e18a275ec6f, type: 3}
+  dotPrefabs: []
   initialTouchPosition: {x: 0, y: 0}
   finalTouchPosition: {x: 0, y: 0}
 --- !u!1660057539 &9223372036854775807

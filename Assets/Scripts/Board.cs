@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using Unity.VisualScripting;
 using UnityEngine;
 
 public enum GameState
@@ -12,7 +13,6 @@ public class Board : MonoBehaviour
 {
     public int width;
     public int height;
-    private Score score;
     public GameState currentState;
 
     // Dots
@@ -28,19 +28,23 @@ public class Board : MonoBehaviour
     private float swapAngle;
     private const float swapResist = 1f;
 
+    // Score
+    private Score score;
+    // Object Pool
+    private ObjectPool dotPool;
+
     // Start is called before the first frame update
     void Start()
     {
         allDots = new Dot[width, height];
-
         score = FindObjectOfType<Score>();
+        dotPool = ObjectPool.instance;
 
         SetUpDots();
     }
 
     private void SetUpDots()
-    {  
-        int dotToUse;  
+    {
         Vector2 tempPosition;
         GameObject piece;
 
@@ -49,15 +53,17 @@ public class Board : MonoBehaviour
             for (int j = 0; j < height; j++)
             {
                 // Create & Set dot
-                dotToUse = Random.Range(0, dotPrefabs.Length);
+                // dotToUse = Random.Range(0, dotPrefabs.Length);
                 tempPosition = new Vector2(i, j);
-                piece = Instantiate(dotPrefabs[dotToUse], tempPosition, Quaternion.identity);
-                piece.transform.parent = this.transform;
+                // piece = Instantiate(dotPrefabs[dotToUse], tempPosition, Quaternion.identity);
+                // piece.transform.parent = this.transform;
+                piece = dotPool.Pool.Get();
+                piece.transform.position = tempPosition;
                 allDots[i, j] = piece.GetComponent<Dot>();
 
                 allDots[i, j].row = j;
                 allDots[i, j].col = i;
-                allDots[i, j].color = (DotColor)dotToUse;
+                // allDots[i, j].color = (DotColor)dotToUse;
                 allDots[i, j].board = this;
             }
         }
@@ -165,7 +171,8 @@ public class Board : MonoBehaviour
                 {    
                     if (allDots[i, j].isMatched)
                     {
-                        Destroy(allDots[i, j].gameObject);
+                        // Destroy(allDots[i, j].gameObject);
+                        allDots[i, j].Pool.Release(allDots[i, j].gameObject);
                         allDots[i, j] = null;
                         score.score++;
                     }
@@ -202,12 +209,14 @@ public class Board : MonoBehaviour
             {
                 dotToUse = Random.Range(0, dotPrefabs.Length);
                 tempPosition = new Vector2(i, height + n);
-                piece = Instantiate(dotPrefabs[dotToUse], tempPosition, Quaternion.identity);
-                piece.transform.parent = this.transform;
+                // piece = Instantiate(dotPrefabs[dotToUse], tempPosition, Quaternion.identity);
+                // piece.transform.parent = this.transform;
+                piece = dotPool.Pool.Get();
+                piece.transform.position = tempPosition;
                 allDots[i, height - nullCount + n] = piece.GetComponent<Dot>();
 
                 allDots[i, height - nullCount + n].board = this;
-                allDots[i, height - nullCount + n].color = (DotColor)dotToUse;
+                // allDots[i, height - nullCount + n].color = (DotColor)dotToUse;
                 allDots[i, height - nullCount + n].MoveTo(i, height - nullCount + n);
             }
             
