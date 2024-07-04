@@ -40,15 +40,19 @@ public class Board : MonoBehaviour
     }
 
     private void SetUp()
-    {
+    {  
+        int dotToUse;  
+        Vector2 tempPosition;
+        GameObject piece;
+
         for (int i = 0; i < width; i++)
         {
             for (int j = 0; j < height; j++)
             {
                 // Create & Set dot
-                int dotToUse = Random.Range(0, dotType.Length);
-                Vector2 tempPosition = new Vector2(i, j);
-                GameObject piece = Instantiate(dotType[dotToUse], tempPosition, Quaternion.identity);
+                dotToUse = Random.Range(0, dotType.Length);
+                tempPosition = new Vector2(i, j);
+                piece = Instantiate(dotType[dotToUse], tempPosition, Quaternion.identity);
                 piece.transform.parent = this.transform;
                 allDots[i, j] = piece;
 
@@ -68,18 +72,24 @@ public class Board : MonoBehaviour
         currentState = GameState.wait;
         bool bMatchesOnBoard = false;
         
+        GameObject currentDot;
+        GameObject leftDot;
+        GameObject rightDot;
+        GameObject upDot;
+        GameObject downDot;
+
         for (int i = 0; i < width; i ++)
         {
             for (int j = 0; j < height; j ++)
             {
-                GameObject currentDot = allDots[i, j];
+                currentDot = allDots[i, j];
 
                 if(currentDot)
                 {
                     if (i > 0 && i < width - 1)
                     {
-                        GameObject leftDot = allDots[i - 1, j];
-                        GameObject rightDot = allDots[i + 1, j];
+                        leftDot = allDots[i - 1, j];
+                        rightDot = allDots[i + 1, j];
 
                         if (leftDot && rightDot)
                         {
@@ -95,8 +105,8 @@ public class Board : MonoBehaviour
 
                     if (j > 0 && j < height - 1)
                     {
-                        GameObject upDot = allDots[i, j + 1];
-                        GameObject downDot = allDots[i, j - 1];
+                        upDot = allDots[i, j + 1];
+                        downDot = allDots[i, j - 1];
 
                         if (upDot && downDot)
                         {
@@ -119,8 +129,18 @@ public class Board : MonoBehaviour
             DestroyMatches();
             return;
         }
-            // Match된 Dot이 없다면 터치할 수 있도록 만든다
-            currentState = GameState.touch;
+        else
+        {
+            if (CheckCanMatch())
+            {
+                // Match된 Dot이 없다면 터치할 수 있도록 만든다
+                currentState = GameState.touch;
+            }
+            else
+            {
+                Debug.Log("cannot match");
+            }
+        }
     }
 
     public void DestroyMatches()
@@ -145,12 +165,16 @@ public class Board : MonoBehaviour
         
         // Score 세팅
         scoreText.text = score.ToString();
-        StartCoroutine(DecreaseRowCo());
+        StartCoroutine(RefillRowCo());
     }
 
-    private IEnumerator DecreaseRowCo()
+    private IEnumerator RefillRowCo()
     {
-        // 정리한다 : Dot이 아래로 떨어지도록 만든다
+        int dotToUse;
+        Vector2 tempPosition;
+        GameObject piece;
+
+        // 채운다 : Dot을 떨어트려 채운다
         int nullCount = 0;
         for (int i = 0; i < width; i++)
         {
@@ -166,34 +190,318 @@ public class Board : MonoBehaviour
                     allDots[i, j] = null;
                 }
             }
+
+            for (int n = 0; n < nullCount; n++)
+            {
+                dotToUse = Random.Range(0, dotType.Length);
+                tempPosition = new Vector2(i, height + n);
+                piece = Instantiate(dotType[dotToUse], tempPosition, Quaternion.identity);
+                piece.transform.parent = this.transform;
+                allDots[i, height - nullCount + n] = piece;
+
+                piece.GetComponent<Dot>().col = i;
+                piece.GetComponent<Dot>().row = height - nullCount + n;
+                piece.GetComponent<Dot>().board = this;
+            }
+            
             nullCount = 0;
         }
 
         yield return new WaitForSeconds(.5f); // wait animation
-        RefillBoard();
+        FindAllMatches();
     }
 
-    private void RefillBoard()
+    // private IEnumerator DecreaseRowCo()
+    // {
+    //     // 정리한다 : Dot이 아래로 떨어지도록 만든다
+    //     int nullCount = 0;
+    //     for (int i = 0; i < width; i++)
+    //     {
+    //         for (int j = 0; j < height; j++)
+    //         {
+    //             if (allDots[i, j] == null)
+    //             {
+    //                 nullCount++;
+    //             }
+    //             else if (nullCount > 0)
+    //             {
+    //                 allDots[i, j].GetComponent<Dot>().row -= nullCount;
+    //                 allDots[i, j] = null;
+    //             }
+    //         }
+    //         nullCount = 0;
+    //     }
+    //     yield return new WaitForSeconds(.5f); // wait animation
+    //     StartCoroutine(RefillBoardCo());
+    // }
+
+    // private IEnumerator RefillBoardCo()
+    // {
+    //     // 채운다 : 빈 공간에 새 Dot를 채운다
+    //     for (int i = 0; i < width; i++)
+    //     {
+    //         for (int j = 0; j < height; j++)
+    //         {
+    //             if (allDots[i, j] == null)
+    //             {
+    //                 Vector2 tempPosition = new Vector2(i, j);
+    //                 int dotToUse = Random.Range(0, dotType.Length);
+    //                 GameObject piece = Instantiate(dotType[dotToUse], tempPosition, Quaternion.identity);
+    //                 allDots[i, j] = piece;
+
+    //                 piece.GetComponent<Dot>().col = i;
+    //                 piece.GetComponent<Dot>().row = j;
+    //                 piece.GetComponent<Dot>().board = this;
+    //             }
+    //         }
+    //     }
+    //     yield return new WaitForSeconds(.5f);
+    //     FindAllMatches();
+    // }
+
+    private bool CheckCanMatch()
     {
-        // 채운다 : 빈 공간에 새 Dot를 채운다
+        GameObject currentDot;
+        GameObject leftDot;
+        GameObject rightDot;
+        GameObject upDot;
+        GameObject downDot;
+        GameObject doubleLeftDot;
+        GameObject doubleRightDot;
+        GameObject doubleUpDot;
+        GameObject doubleDownDot;
+        GameObject tempDot;
+
+        string tag;
+
         for (int i = 0; i < width; i++)
         {
             for (int j = 0; j < height; j++)
             {
-                if (allDots[i, j] == null)
+                currentDot = allDots[i, j];
+                tag = currentDot.tag;
+                
+                if(currentDot)
                 {
-                    Vector2 tempPosition = new Vector2(i, j);
-                    int dotToUse = Random.Range(0, dotType.Length);
-                    GameObject piece = Instantiate(dotType[dotToUse], tempPosition, Quaternion.identity);
-                    allDots[i, j] = piece;
-
-                    piece.GetComponent<Dot>().col = i;
-                    piece.GetComponent<Dot>().row = j;
-                    piece.GetComponent<Dot>().board = this;
+                    if (i > 0)
+                    {
+                        leftDot = allDots[i - 1, j];
+                        if (leftDot != null && leftDot.tag == tag)
+                        {
+                            if (i < width - 1 && j < height - 1)
+                            {
+                                tempDot = allDots[i + 1, j + 1];
+                                if (tempDot != null && tempDot.tag == tag) return true;
+                            }
+                            if (i < width - 1 && j > 0)
+                            {
+                                tempDot = allDots[i + 1, j - 1];
+                                if (tempDot != null && tempDot.tag == tag) return true;
+                            }
+                            if (i < width - 2)
+                            {
+                                tempDot = allDots[i + 2, j];
+                                if (tempDot != null && tempDot.tag == tag) return true;
+                            }
+                            if (i > 1 && j < height - 1)
+                            {
+                                tempDot = allDots[i - 2, j + 1];
+                                if (tempDot != null && tempDot.tag == tag) return true;
+                            }
+                            if (i > 1 && j > 0)
+                            {
+                                tempDot = allDots[i - 2, j - 1];
+                                if (tempDot != null && tempDot.tag == tag) return true;
+                            }
+                            if (i > 2)
+                            {
+                                tempDot = allDots[i - 3, j];
+                                if (tempDot != null && tempDot.tag == tag) return true;
+                            }
+                        }
+                    }
+                    if (i < width - 1)
+                    {
+                        rightDot = allDots[i + 1, j];
+                        if (rightDot != null && rightDot.tag == tag)
+                        {
+                            if (i > 0 && j < height - 1)
+                            {
+                                tempDot = allDots[i - 1, j + 1];
+                                if (tempDot != null && tempDot.tag == tag) return true;
+                            }
+                            if (i > 0 && j > 0)
+                            {
+                                tempDot = allDots[i - 1, j - 1];
+                                if (tempDot != null && tempDot.tag == tag) return true;
+                            }
+                            if (i > 1)
+                            {
+                                tempDot = allDots[i - 2, j];
+                                if (tempDot != null && tempDot.tag == tag) return true;
+                            }
+                            if (i < width - 2 && j < height - 1)
+                            {
+                                tempDot = allDots[i + 2, j + 1];
+                                if (tempDot != null && tempDot.tag == tag) return true;
+                            }
+                            if (i < width - 2 && j > 0)
+                            {
+                                tempDot = allDots[i + 2, j - 1];
+                                if (tempDot != null && tempDot.tag == tag) return true;
+                            }
+                            if (i < width - 3)
+                            {
+                                tempDot = allDots[i + 3, j];
+                                if (tempDot != null && tempDot.tag == tag) return true;
+                            }
+                        }
+                    }
+                    if (j < height - 1)
+                    {
+                        upDot = allDots[i, j + 1];
+                        if (upDot != null && upDot.tag == tag)
+                        {
+                            if (j > 0 && i < width - 1)
+                            {
+                                tempDot = allDots[i + 1, j - 1];
+                                if (tempDot != null && tempDot.tag == tag) return true;
+                            }
+                            if (j > 0 && i > 0)
+                            {
+                                tempDot = allDots[i - 1, j - 1];
+                                if (tempDot != null && tempDot.tag == tag) return true;
+                            }
+                            if (j > 1)
+                            {
+                                tempDot = allDots[i, j - 2];
+                                if (tempDot != null && tempDot.tag == tag) return true;
+                            }
+                            if (j < height - 2 && i < width - 1)
+                            {
+                                tempDot = allDots[i + 1, j + 2];
+                                if (tempDot != null && tempDot.tag == tag) return true;
+                            }
+                            if (j < height - 2 && i > 0)
+                            {
+                                tempDot = allDots[i - 1, j + 2];
+                                if (tempDot != null && tempDot.tag == tag) return true;
+                            }
+                            if (j < height - 3)
+                            {
+                                tempDot = allDots[i, j + 3];
+                                if (tempDot != null && tempDot.tag == tag) return true;
+                            }
+                        }
+                    }
+                    if (j > 0)
+                    {
+                        downDot = allDots[i, j - 1];
+                        if (downDot != null && downDot.tag == tag)
+                        {
+                            if (j < height - 1 && i < width - 1)
+                            {
+                                tempDot = allDots[i + 1, j + 1];
+                                if (tempDot != null && tempDot.tag == tag) return true;
+                            }
+                            if (j < height - 1 && i > 0)
+                            {
+                                tempDot = allDots[i - 1, j + 1];
+                                if (tempDot != null && tempDot.tag == tag) return true;
+                            }
+                            if (j < height - 2)
+                            {
+                                tempDot = allDots[i, j + 2];
+                                if (tempDot != null && tempDot.tag == tag) return true;
+                            }
+                            if (j > 1 && i < width - 1)
+                            {
+                                tempDot = allDots[i + 1, j - 2];
+                                if (tempDot != null && tempDot.tag == tag) return true;
+                            }
+                            if (j > 1 && i > 0)
+                            {
+                                tempDot = allDots[i - 1, j - 2];
+                                if (tempDot != null && tempDot.tag == tag) return true;
+                            }
+                            if (j > 2)
+                            {
+                                tempDot = allDots[i, j - 3];
+                                if (tempDot != null && tempDot.tag == tag) return true;
+                            }
+                        }
+                    }
+                    if (i > 1)
+                    {
+                        doubleLeftDot = allDots[i - 2, j];
+                        if (doubleLeftDot != null && doubleLeftDot.tag == tag)
+                        {
+                            if (j < height - 1)
+                            {
+                                tempDot = allDots[i - 1, j + 1];
+                                if (tempDot != null && tempDot.tag == tag) return true;
+                            }
+                            if (j > 0)
+                            {
+                                tempDot = allDots[i - 1, j - 1];
+                                if (tempDot != null && tempDot.tag == tag) return true;
+                            }
+                        }
+                    }
+                    if (i < width - 2)
+                    {
+                        doubleRightDot = allDots[i + 2, j];
+                        if (doubleRightDot != null && doubleRightDot.tag == tag)
+                        {
+                            if (j < height - 1)
+                            {
+                                tempDot = allDots[i + 1, j + 1];
+                                if (tempDot != null && tempDot.tag == tag) return true;
+                            }
+                            if (j > 0)
+                            {
+                                tempDot = allDots[i + 1, j - 1];
+                                if (tempDot != null && tempDot.tag == tag) return true;
+                            }
+                        }
+                    }
+                    if (j < height - 2)
+                    {
+                        doubleUpDot = allDots[i, j + 2];
+                        if (doubleUpDot != null && doubleUpDot.tag == tag)
+                        {
+                            if (i > 0)
+                            {
+                                tempDot = allDots[i - 1, j + 1];
+                                if (tempDot != null && tempDot.tag == tag) return true;
+                            }
+                            if (i < width - 1)
+                            {
+                                tempDot = allDots[i + 1, j + 1];
+                                if (tempDot != null && tempDot.tag == tag) return true;
+                            }
+                        }
+                    }
+                    if (j > 1)
+                    {
+                        doubleDownDot = allDots[i, j - 2];
+                        if (doubleDownDot != null && doubleDownDot.tag == tag)
+                        {
+                            if (i > 0)
+                            {
+                                tempDot = allDots[i - 1, j - 1];
+                                if (tempDot != null && tempDot.tag == tag) return true;
+                            }
+                            if (i < width - 1)
+                            {
+                                tempDot = allDots[i + 1, j - 1];
+                                if (tempDot != null && tempDot.tag == tag) return true;
+                            }
+                        }
+                    }
                 }
             }
         }
-
-        FindAllMatches();
+        return false;
     }
 }
