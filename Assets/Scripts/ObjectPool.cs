@@ -5,15 +5,15 @@ using UnityEngine.Pool;
 
 public class ObjectPool : MonoBehaviour
 {
-    public int poolSize = 100;
+    private Board board;
+    private int poolSize = 20;
     public GameObject[] dotPrefabs;
     private Dictionary<DotColor, Queue<GameObject>> pool = new Dictionary<DotColor, Queue<GameObject>>();
-    private Board board;
 
     private void Awake()
     {
         board = FindObjectOfType<Board>();
-        poolSize = board.width * board.height / 3;
+        poolSize = board.width * board.height * 2 / dotPrefabs.Length;
 
         foreach (DotColor color in System.Enum.GetValues(typeof(DotColor)))
         {
@@ -34,12 +34,12 @@ public class ObjectPool : MonoBehaviour
             }
         }
     }
-    
+
     public GameObject GetObject(DotColor color)
     {
         GameObject piece;
 
-        if (pool.Count > 0)
+        if (pool[color].Count > 0)
         {
             piece = pool[color].Dequeue();
             piece.SetActive(true);
