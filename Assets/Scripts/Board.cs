@@ -23,7 +23,8 @@ public class Board : MonoBehaviour
     private Dot currentDot;
     private Dot otherDot;
     private float swapAngle;
-    private const float swapResist = 1f;
+    public float swapDuration = .3f;
+    public const float swapResist = 1f;
 
     // Score
     private Score score;
@@ -62,11 +63,13 @@ public class Board : MonoBehaviour
         }
 
         // 시작할 때 Match 검사
-        ProcessMatches();
+        // ProcessMatches();
+        StartCoroutine(ProcessMatchesCo());
     }
 
     // Match 프로세스를 시작 + GameState 제어
-    private void ProcessMatches()
+    // private void ProcessMatches()
+    private IEnumerator ProcessMatchesCo()
     {
         // 매치가 시작되면 터치가 불가능하게 만든다
         currentState = GameState.wait;
@@ -77,8 +80,12 @@ public class Board : MonoBehaviour
             // Match된 Dot이 있다면 부순다
             DestroyMatches();
 
+            yield return new WaitForSeconds(.1f);
+
             // 부수고 나면 바로 리필한다
             StartCoroutine(RefillRowCo());
+
+            yield return new WaitForSeconds(swapDuration + 0.1f);
         }
 
         // Match된 Dot이 없다면 Match할 수 있는 조합이 있는지 확인한다
@@ -213,7 +220,7 @@ public class Board : MonoBehaviour
             nullCount = 0;
         }
 
-        yield return new WaitForSeconds(.5f); // wait animation
+        yield return new WaitForSeconds(swapDuration); // wait animation
     }
 
     // 입력 받은 dot의 위치를 바꾼다 (currentDot <-> otherDot)
@@ -267,9 +274,10 @@ public class Board : MonoBehaviour
 
     public IEnumerator DotSwapCo()
     {
-        yield return new WaitForSeconds(.5f); // wait animation
-        
-        ProcessMatches(); // 매치 프로세스를 시작한다
+        yield return new WaitForSeconds(swapDuration); // wait animation
+
+        // ProcessMatches(); // 매치 프로세스를 시작한다
+        StartCoroutine(ProcessMatchesCo());
 
         // Match되지 않았다면 되돌린다
         if (currentDot && currentDot.isActiveAndEnabled &&
@@ -280,7 +288,7 @@ public class Board : MonoBehaviour
                 otherDot.GetComponent<Dot>().MoveTo(currentDot.col, currentDot.row);
                 currentDot.MoveTo((int)previousPosition.x, (int)previousPosition.y);
 
-                yield return new WaitForSeconds(.5f); // wait animation
+                yield return new WaitForSeconds(swapDuration); // wait animation
                 currentState = GameState.touch;
             }
         }

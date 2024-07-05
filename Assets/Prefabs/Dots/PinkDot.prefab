@@ -14,7 +14,7 @@ GameObject:
   - component: {fileID: -1728760133531560848}
   m_Layer: 0
   m_Name: PinkDot
-  m_TagString: Pink Dot
+  m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -133,3 +133,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b52c8db641176874d93211caad72c5ab, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  isMatched: 0
+  color: 0
+  col: 0
+  row: 0
+  board: {fileID: 0}

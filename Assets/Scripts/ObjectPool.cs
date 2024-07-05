@@ -6,14 +6,14 @@ using UnityEngine.Pool;
 public class ObjectPool : MonoBehaviour
 {
     private Board board;
-    private int poolSize = 20;
+    private int poolSize;
     public GameObject[] dotPrefabs;
     private Dictionary<DotColor, Queue<GameObject>> pool = new Dictionary<DotColor, Queue<GameObject>>();
 
     private void Awake()
     {
         board = FindObjectOfType<Board>();
-        poolSize = board.width * board.height * 2 / dotPrefabs.Length;
+        poolSize = board.width * board.height / dotPrefabs.Length;
 
         foreach (DotColor color in System.Enum.GetValues(typeof(DotColor)))
         {

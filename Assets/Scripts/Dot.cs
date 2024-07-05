@@ -31,13 +31,14 @@ public class Dot : MonoBehaviour
     private Camera mainCamera;
 
     // Move
-    public const float moveDuration = .5f;
+    public float swapDuration = .5f;
     private Vector2 targetPosition;
 
     // Start is called before the first frame update
     void Start()
     {
         mainCamera = Camera.main;
+        swapDuration = board.swapDuration;
     }
 
     private void OnMouseDown()
@@ -65,7 +66,7 @@ public class Dot : MonoBehaviour
         col = targetCol;
         row = targetRow;
         targetPosition = new Vector2(col, row);
-        transform.DOMove(targetPosition, moveDuration);
+        transform.DOMove(targetPosition, swapDuration);
         board.allDots[col, row] = this;
     }
 }
