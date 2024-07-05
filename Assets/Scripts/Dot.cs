@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Scripting.APIUpdating;
-using UnityEngine.Pool;
 using DG.Tweening;
 
 public enum DotColor
@@ -34,9 +33,6 @@ public class Dot : MonoBehaviour
     // Move
     public const float moveDuration = .5f;
     private Vector2 targetPosition;
-
-    // Object Pool
-    public IObjectPool<GameObject> Pool { get; set; }
 
     // Start is called before the first frame update
     void Start()

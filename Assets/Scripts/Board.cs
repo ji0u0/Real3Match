@@ -11,12 +11,9 @@ public enum GameState
 
 public class Board : MonoBehaviour
 {
+    public GameState currentState;
     public int width;
     public int height;
-    public GameState currentState;
-
-    // Dots
-    public GameObject[] dotPrefabs;
     public Dot[,] allDots;
 
     // Swap
@@ -31,40 +28,36 @@ public class Board : MonoBehaviour
     // Score
     private Score score;
     // Object Pool
-    private ObjectPool dotPool;
+    private ObjectPool objectPool;
 
     // Start is called before the first frame update
     void Start()
     {
-        allDots = new Dot[width, height];
         score = FindObjectOfType<Score>();
-        dotPool = ObjectPool.instance;
+        objectPool = FindObjectOfType<ObjectPool>();
 
         SetUpDots();
     }
 
     private void SetUpDots()
     {
+        DotColor randomColor;
         Vector2 tempPosition;
         GameObject piece;
 
+        // Create & Set dot
+        allDots = new Dot[width, height];
         for (int i = 0; i < width; i++)
         {
             for (int j = 0; j < height; j++)
             {
-                // Create & Set dot
-                // dotToUse = Random.Range(0, dotPrefabs.Length);
+                randomColor = (DotColor)Random.Range(0, objectPool.dotPrefabs.Length);
                 tempPosition = new Vector2(i, j);
-                // piece = Instantiate(dotPrefabs[dotToUse], tempPosition, Quaternion.identity);
-                // piece.transform.parent = this.transform;
-                piece = dotPool.Pool.Get();
+                piece = objectPool.GetObject(randomColor);
                 piece.transform.position = tempPosition;
                 allDots[i, j] = piece.GetComponent<Dot>();
-
                 allDots[i, j].row = j;
                 allDots[i, j].col = i;
-                // allDots[i, j].color = (DotColor)dotToUse;
-                allDots[i, j].board = this;
             }
         }
 
@@ -72,7 +65,7 @@ public class Board : MonoBehaviour
         ProcessMatches();
     }
 
-    // Match 프로세스를 시작한다.
+    // Match 프로세스를 시작 + GameState 제어
     private void ProcessMatches()
     {
         // 매치가 시작되면 터치가 불가능하게 만든다
@@ -83,6 +76,7 @@ public class Board : MonoBehaviour
         {
             // Match된 Dot이 있다면 부순다
             DestroyMatches();
+
             // 부수고 나면 바로 리필한다
             StartCoroutine(RefillRowCo());
         }
@@ -118,14 +112,14 @@ public class Board : MonoBehaviour
             {
                 currentDot = allDots[i, j];
 
-                if(currentDot)
+                if(currentDot != null)
                 {
                     if (i > 0 && i < width - 1)
                     {
                         leftDot = allDots[i - 1, j];
                         rightDot = allDots[i + 1, j];
 
-                        if (leftDot && rightDot)
+                        if (leftDot != null && rightDot != null)
                         {
                             if (leftDot.color == currentDot.color && rightDot.color == currentDot.color)
                             {
@@ -142,7 +136,7 @@ public class Board : MonoBehaviour
                         upDot = allDots[i, j + 1];
                         downDot = allDots[i, j - 1];
 
-                        if (upDot && downDot)
+                        if (upDot != null && downDot != null)
                         {
                             if (upDot.color == currentDot.color && downDot.color == currentDot.color)
                             {
@@ -171,8 +165,8 @@ public class Board : MonoBehaviour
                 {    
                     if (allDots[i, j].isMatched)
                     {
-                        // Destroy(allDots[i, j].gameObject);
-                        allDots[i, j].Pool.Release(allDots[i, j].gameObject);
+                        allDots[i, j].isMatched = false;
+                        objectPool.ReturnObject(allDots[i, j].gameObject);
                         allDots[i, j] = null;
                         score.score++;
                     }
@@ -185,13 +179,14 @@ public class Board : MonoBehaviour
     // 채운다 : Dot을 떨어트려 채운다
     private IEnumerator RefillRowCo()
     {
-        int dotToUse;
+        DotColor randomColor;
         Vector2 tempPosition;
         GameObject piece;
 
         int nullCount = 0;
         for (int i = 0; i < width; i++)
         {
+            // 있는 dots들 떨어트리기
             for (int j = 0; j < height; j++)
             {
                 if (allDots[i, j] == null)
@@ -204,22 +199,17 @@ public class Board : MonoBehaviour
                     allDots[i, j] = null;
                 }
             }
-
+            
+            // 새 dots 생성해서 떨어트리기
             for (int n = 0; n < nullCount; n++)
             {
-                dotToUse = Random.Range(0, dotPrefabs.Length);
+                randomColor = (DotColor)Random.Range(0, objectPool.dotPrefabs.Length);
                 tempPosition = new Vector2(i, height + n);
-                // piece = Instantiate(dotPrefabs[dotToUse], tempPosition, Quaternion.identity);
-                // piece.transform.parent = this.transform;
-                piece = dotPool.Pool.Get();
+                piece = objectPool.GetObject(randomColor);
                 piece.transform.position = tempPosition;
                 allDots[i, height - nullCount + n] = piece.GetComponent<Dot>();
-
-                allDots[i, height - nullCount + n].board = this;
-                // allDots[i, height - nullCount + n].color = (DotColor)dotToUse;
                 allDots[i, height - nullCount + n].MoveTo(i, height - nullCount + n);
             }
-            
             nullCount = 0;
         }
 
@@ -278,10 +268,12 @@ public class Board : MonoBehaviour
     public IEnumerator DotSwapCo()
     {
         yield return new WaitForSeconds(.5f); // wait animation
+        
         ProcessMatches(); // 매치 프로세스를 시작한다
 
         // Match되지 않았다면 되돌린다
-        if (currentDot && otherDot)
+        if (currentDot && currentDot.isActiveAndEnabled &&
+            otherDot && otherDot.isActiveAndEnabled)
         {
             if (!currentDot.isMatched && !otherDot.GetComponent<Dot>().isMatched)
             {

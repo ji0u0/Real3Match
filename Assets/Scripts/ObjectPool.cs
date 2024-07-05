@@ -5,62 +5,61 @@ using UnityEngine.Pool;
 
 public class ObjectPool : MonoBehaviour
 {
-    public static ObjectPool instance;
     public int poolSize = 100;
     public GameObject[] dotPrefabs;
-
-    public IObjectPool<GameObject> Pool { get; set; }
-
-    int dotToUse;
+    private Dictionary<DotColor, Queue<GameObject>> pool = new Dictionary<DotColor, Queue<GameObject>>();
+    private Board board;
 
     private void Awake()
     {
-        if (instance == null)
-            instance = this;
-        else
-            Destroy(this.gameObject);
+        board = FindObjectOfType<Board>();
+        poolSize = board.width * board.height / 3;
 
-        Init();
-    }
-
-    private void Init()
-    {
-        Pool = new ObjectPool<GameObject>(CreatePooledItem, OnTakeFromPool, OnReturnedToPool,
-        OnDestroyPoolObject, true, poolSize);
-
-        // 미리 오브젝트 생성 해놓기
-        for (int i = 0; i < poolSize; i++)
+        foreach (DotColor color in System.Enum.GetValues(typeof(DotColor)))
         {
-            Dot dot = CreatePooledItem().GetComponent<Dot>();
-            dot.Pool.Release(dot.gameObject);
+            pool[color] = new Queue<GameObject>();
+        }
+
+        // 미리 풀에 dots 생성
+        GameObject piece;
+        for (int i = 0; i < dotPrefabs.Length; i++)
+        {
+            for (int j = 0; j < poolSize; j++)
+            {
+                piece = Instantiate(dotPrefabs[i]);
+                piece.GetComponent<Dot>().board = this.board;
+                piece.GetComponent<Dot>().color = (DotColor)i;
+                piece.SetActive(false);
+                pool[(DotColor)i].Enqueue(piece);
+            }
+        }
+    }
+    
+    public GameObject GetObject(DotColor color)
+    {
+        GameObject piece;
+
+        if (pool.Count > 0)
+        {
+            piece = pool[color].Dequeue();
+            piece.SetActive(true);
+            return piece;
+        }
+        else
+        {
+            // 부족하면 추가
+            piece = Instantiate(dotPrefabs[(int)color]);
+            piece.GetComponent<Dot>().board = this.board;
+            piece.GetComponent<Dot>().color = color;
+            piece.SetActive(true);
+            return piece;
         }
     }
 
-    // 생성
-    private GameObject CreatePooledItem()
+    public void ReturnObject(GameObject piece)
     {
-        dotToUse = Random.Range(0, dotPrefabs.Length);
-        GameObject poolGo = Instantiate(dotPrefabs[dotToUse]);
-        poolGo.GetComponent<Dot>().Pool = this.Pool;
-        poolGo.GetComponent<Dot>().color = (DotColor)dotToUse;
-        return poolGo;
-    }
-
-    // 사용
-    private void OnTakeFromPool(GameObject poolGo)
-    {
-        poolGo.SetActive(true);
-    }
-
-    // 반환
-    private void OnReturnedToPool(GameObject poolGo)
-    {
-        poolGo.SetActive(false);
-    }
-
-    // 삭제
-    private void OnDestroyPoolObject(GameObject poolGo)
-    {
-        Destroy(poolGo);
+        int color = (int)piece.GetComponent<Dot>().color;
+        piece.SetActive(false);
+        pool[(DotColor)color].Enqueue(piece);
     }
 }
