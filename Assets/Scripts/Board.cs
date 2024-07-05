@@ -2,6 +2,8 @@ using System.Collections;
 using System.Collections.Generic;
 using Unity.VisualScripting;
 using UnityEngine;
+using System;
+using Unity.Collections;
 
 public enum GameState
 {
@@ -11,68 +13,90 @@ public enum GameState
 
 public class Board : MonoBehaviour
 {
-    public GameState currentState;
     public int width;
     public int height;
+    public GameState currentState;
+
+    // Dots
     public Dot[,] allDots;
+    private HashSet<Dot> tempDots = new HashSet<Dot>();
 
     // Swap
+    public Action<Vector2> MouseDownAction;
+    public Action<Vector2, Dot> MouseUpAction;
     public Vector2 initialTouchPosition;
     public Vector2 finalTouchPosition;
     private Vector2 previousPosition;
+    private bool checkTouch;
     private Dot currentDot;
     private Dot otherDot;
     private float swapAngle;
     public float swapDuration = .3f;
-    public const float swapResist = 1f;
+    public float termDuration = .1f;
+    public float swapResist = 1f;
 
-    // Score
-    private Score score;
-    // Object Pool
-    private ObjectPool objectPool;
+    public Score scoreManager;
+    public ObjectPool objectPoolManager;
 
     // Start is called before the first frame update
     void Start()
     {
-        score = FindObjectOfType<Score>();
-        objectPool = FindObjectOfType<ObjectPool>();
-
+        MouseDownAction += MouseDown;
+        MouseUpAction += MouseUp;
+        
         SetUpDots();
     }
 
+    // Create & Set dot
     private void SetUpDots()
     {
-        DotColor randomColor;
-        Vector2 tempPosition;
-        GameObject piece;
-
-        // Create & Set dot
         allDots = new Dot[width, height];
         for (int i = 0; i < width; i++)
         {
             for (int j = 0; j < height; j++)
             {
-                randomColor = (DotColor)Random.Range(0, objectPool.dotPrefabs.Length);
-                tempPosition = new Vector2(i, j);
-                piece = objectPool.GetObject(randomColor);
+                int randomColor = UnityEngine.Random.Range(0, objectPoolManager.dotPrefabs.Length);
+                Vector2 tempPosition = new Vector2(i, j);
+                GameObject piece = objectPoolManager.GetObject((DotColor)randomColor);
                 piece.transform.position = tempPosition;
                 allDots[i, j] = piece.GetComponent<Dot>();
-                allDots[i, j].row = j;
+                allDots[i, j].board = this;
                 allDots[i, j].col = i;
+                allDots[i, j].row = j;
             }
         }
 
         // 시작할 때 Match 검사
-        // ProcessMatches();
         StartCoroutine(ProcessMatchesCo());
     }
 
+    // Mouse controll
+    public void MouseDown(Vector2 vector)
+    {
+        if (currentState == GameState.touch)
+        {
+            initialTouchPosition = vector;
+            checkTouch = true;
+        }
+    }
+
+    public void MouseUp(Vector2 vector, Dot dot)
+    {
+        if (checkTouch && currentState == GameState.touch)
+        {
+            finalTouchPosition = vector;
+            HandleDotSwap(dot);
+        }
+        checkTouch = false;
+    }
+
     // Match 프로세스를 시작 + GameState 제어
-    // private void ProcessMatches()
     private IEnumerator ProcessMatchesCo()
     {
         // 매치가 시작되면 터치가 불가능하게 만든다
         currentState = GameState.wait;
+
+        yield return new WaitForSeconds(swapDuration); // wait animation
 
         // 찾는다 -> 매치된 Dot이 있는가?
         while (FindAllMatches())
@@ -80,12 +104,12 @@ public class Board : MonoBehaviour
             // Match된 Dot이 있다면 부순다
             DestroyMatches();
 
-            yield return new WaitForSeconds(.1f);
+            yield return new WaitForSeconds(termDuration);
 
             // 부수고 나면 바로 리필한다
             StartCoroutine(RefillRowCo());
 
-            yield return new WaitForSeconds(swapDuration + 0.1f);
+            yield return new WaitForSeconds(swapDuration + termDuration);
         }
 
         // Match된 Dot이 없다면 Match할 수 있는 조합이 있는지 확인한다
@@ -106,90 +130,61 @@ public class Board : MonoBehaviour
     private bool FindAllMatches()
     {
         bool bMatchesOnBoard = false;
-        
-        Dot currentDot;
-        Dot leftDot;
-        Dot rightDot;
-        Dot upDot;
-        Dot downDot;
 
         for (int i = 0; i < width; i ++)
         {
             for (int j = 0; j < height; j ++)
             {
-                currentDot = allDots[i, j];
-
+                Dot currentDot = allDots[i, j];
                 if(currentDot != null)
                 {
-                    if (i > 0 && i < width - 1)
+                    if (i > 0 && i < width - 1) // 가로 체크
                     {
-                        leftDot = allDots[i - 1, j];
-                        rightDot = allDots[i + 1, j];
+                        Dot leftDot = allDots[i - 1, j];
+                        Dot rightDot = allDots[i + 1, j];
 
-                        if (leftDot != null && rightDot != null)
+                        if (leftDot != null && leftDot.color == currentDot.color &&
+                            rightDot != null && rightDot.color == currentDot.color)
                         {
-                            if (leftDot.color == currentDot.color && rightDot.color == currentDot.color)
-                            {
-                                currentDot.isMatched = true;
-                                leftDot.isMatched = true;
-                                rightDot.isMatched = true;
-                                bMatchesOnBoard = true;
-                            }
+                            tempDots.AddRange(new Dot[] {currentDot, leftDot, rightDot});
+                            bMatchesOnBoard = true;
                         }
                     }
-
-                    if (j > 0 && j < height - 1)
+                    if (j > 0 && j < height - 1) // 세로 체크
                     {
-                        upDot = allDots[i, j + 1];
-                        downDot = allDots[i, j - 1];
+                        Dot upDot = allDots[i, j + 1];
+                        Dot downDot = allDots[i, j - 1];
 
-                        if (upDot != null && downDot != null)
+                        if (upDot != null && upDot.color == currentDot.color &&
+                            downDot != null && downDot.color == currentDot.color)
                         {
-                            if (upDot.color == currentDot.color && downDot.color == currentDot.color)
-                            {
-                                currentDot.isMatched = true;
-                                upDot.isMatched = true;
-                                downDot.isMatched = true;
-                                bMatchesOnBoard = true;
-                            }
+                            tempDots.AddRange(new Dot[] {currentDot, upDot, downDot});
+                            bMatchesOnBoard = true;
                         }
                     }
                 }
             }
         }
-
         return bMatchesOnBoard;
     }
 
     // 부순다 : 매치된 Dot을 부순다 + 스코어 업뎃
     private void DestroyMatches()
     {
-        for (int i = 0; i < width; i++)
+        foreach (Dot dot in tempDots)
         {
-            for (int j = 0; j < height; j++)
-            {
-                if (allDots[i, j])
-                {    
-                    if (allDots[i, j].isMatched)
-                    {
-                        allDots[i, j].isMatched = false;
-                        objectPool.ReturnObject(allDots[i, j].gameObject);
-                        allDots[i, j] = null;
-                        score.score++;
-                    }
-                }
-            }
+            allDots[dot.col, dot.row] = null;
+            objectPoolManager.PoolObject(dot.gameObject);
+            scoreManager.score++;
         }
-        score.SetScore();
+
+        tempDots.Clear();
+        scoreManager.SetScore();
     }
 
     // 채운다 : Dot을 떨어트려 채운다
     private IEnumerator RefillRowCo()
     {
-        DotColor randomColor;
-        Vector2 tempPosition;
-        GameObject piece;
-
         int nullCount = 0;
         for (int i = 0; i < width; i++)
         {
@@ -210,28 +205,29 @@ public class Board : MonoBehaviour
             // 새 dots 생성해서 떨어트리기
             for (int n = 0; n < nullCount; n++)
             {
-                randomColor = (DotColor)Random.Range(0, objectPool.dotPrefabs.Length);
-                tempPosition = new Vector2(i, height + n);
-                piece = objectPool.GetObject(randomColor);
+                DotColor randomColor = (DotColor)UnityEngine.Random.Range(0, objectPoolManager.dotPrefabs.Length);
+                Vector2 tempPosition = new Vector2(i, height + n);
+                GameObject piece = objectPoolManager.GetObject(randomColor);
                 piece.transform.position = tempPosition;
                 allDots[i, height - nullCount + n] = piece.GetComponent<Dot>();
+                allDots[i, height - nullCount + n].board = this;
                 allDots[i, height - nullCount + n].MoveTo(i, height - nullCount + n);
             }
             nullCount = 0;
         }
-
         yield return new WaitForSeconds(swapDuration); // wait animation
     }
 
     // 입력 받은 dot의 위치를 바꾼다 (currentDot <-> otherDot)
     public void HandleDotSwap(Dot dot)
     {
-        if (Mathf.Abs(finalTouchPosition.x - initialTouchPosition.x) > swapResist
-            || Mathf.Abs(finalTouchPosition.y - initialTouchPosition.y) > swapResist)
+        float distanceX = finalTouchPosition.x - initialTouchPosition.x;
+        float distanceY = finalTouchPosition.y - initialTouchPosition.y;
+
+        if (Mathf.Abs(distanceX) > swapResist || Mathf.Abs(distanceY) > swapResist)
         {
             // Calculate Angle
-            swapAngle = Mathf.Atan2(finalTouchPosition.y - initialTouchPosition.y,
-                                    finalTouchPosition.x - initialTouchPosition.x) * 180 / Mathf.PI;
+            swapAngle = Mathf.Atan2(distanceY, distanceX) * 180 / Mathf.PI;
             
             // Swap Pieces
             currentDot = dot;
@@ -268,6 +264,8 @@ public class Board : MonoBehaviour
                 return;
             }
 
+            // 매치 시작 -> 아니면 되돌아가기
+            StartCoroutine(ProcessMatchesCo());
             StartCoroutine(DotSwapCo());
         }
     }
@@ -275,9 +273,6 @@ public class Board : MonoBehaviour
     public IEnumerator DotSwapCo()
     {
         yield return new WaitForSeconds(swapDuration); // wait animation
-
-        // ProcessMatches(); // 매치 프로세스를 시작한다
-        StartCoroutine(ProcessMatchesCo());
 
         // Match되지 않았다면 되돌린다
         if (currentDot && currentDot.isActiveAndEnabled &&
@@ -311,14 +306,12 @@ public class Board : MonoBehaviour
         Dot doubleDownDot;
         Dot tempDot;
 
-        DotColor color;
-
         for (int i = 0; i < width; i++)
         {
             for (int j = 0; j < height; j++)
             {
                 currentDot = allDots[i, j];
-                color = currentDot.color;
+                DotColor color = currentDot.color;
                 
                 if(currentDot)
                 {

@@ -27,12 +27,10 @@ public class Dot : MonoBehaviour
     public Board board;
     
     // Touch
-    private bool checkTouch; // Mouse down 시 true, up 시 false
     private Camera mainCamera;
 
     // Move
-    public float swapDuration = .5f;
-    private Vector2 targetPosition;
+    public float swapDuration;
 
     // Start is called before the first frame update
     void Start()
@@ -43,21 +41,13 @@ public class Dot : MonoBehaviour
 
     private void OnMouseDown()
     {
-        if (board.currentState == GameState.touch)
-        {
-            board.initialTouchPosition = mainCamera.ScreenToWorldPoint(Input.mousePosition);
-            checkTouch = true;
-        }
+        board.MouseDownAction(mainCamera.ScreenToWorldPoint(Input.mousePosition));
+
     }
 
     private void OnMouseUp()
     {
-        if (checkTouch && board.currentState == GameState.touch)
-        {
-            board.finalTouchPosition = mainCamera.ScreenToWorldPoint(Input.mousePosition);
-            board.HandleDotSwap(this);
-        }
-        checkTouch = false;
+        board.MouseUpAction(mainCamera.ScreenToWorldPoint(Input.mousePosition), this);
     }
 
     // 입력된 좌표값에 따라 이동시킨다
@@ -65,7 +55,7 @@ public class Dot : MonoBehaviour
     {
         col = targetCol;
         row = targetRow;
-        targetPosition = new Vector2(col, row);
+        Vector2 targetPosition = new Vector2(col, row);
         transform.DOMove(targetPosition, swapDuration);
         board.allDots[col, row] = this;
     }

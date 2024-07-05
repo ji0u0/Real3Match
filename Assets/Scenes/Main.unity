@@ -507,7 +507,9 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: New Text
+  m_Text: 'Score
+
+'
 --- !u!222 &1424809720
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -542,7 +544,7 @@ Transform:
   m_GameObject: {fileID: 1521018096}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.36427835, y: -1.0161878, z: 0.0071720188}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -606,11 +608,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 778ce32eb8a3c2543b5600d26f58695c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  currentState: 1
   width: 7
   height: 10
+  currentState: 1
   initialTouchPosition: {x: 0, y: 0}
   finalTouchPosition: {x: 0, y: 0}
+  swapDuration: 0.3
+  termDuration: 0.1
+  swapResist: 1
+  scoreManager: {fileID: 1521018098}
+  objectPoolManager: {fileID: 890731861}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
