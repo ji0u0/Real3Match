@@ -4,6 +4,7 @@ using Unity.VisualScripting;
 using UnityEngine;
 using System;
 using Unity.Collections;
+using TMPro;
 
 public enum GameState
 {
@@ -20,7 +21,6 @@ public class Board : MonoBehaviour
     // Dots
     public Dot[,] allDots;
     private HashSet<Dot> matchedDots = new HashSet<Dot>();
-    private HashSet<Dot> extraScoreDots = new HashSet<Dot>();
 
     // Swap
     public Action<Vector2> MouseDownAction;
@@ -56,7 +56,6 @@ public class Board : MonoBehaviour
         {
             for (int j = 0; j < height; j++)
             {
-                // int randomColor = UnityEngine.Random.Range(0, objectPoolManager.dotPrefabs.Length);
                 Vector2 tempPosition = new Vector2(i, j);
                 GameObject piece = objectPoolManager.GetObject();
                 piece.transform.position = tempPosition;
@@ -156,7 +155,7 @@ public class Board : MonoBehaviour
 
             yield return new WaitForSeconds(termDuration);
 
-            // 부수고 나면 바로 리필한다
+            // 부수고 나면 리필한다
             StartCoroutine(RefillRowCo());
 
             yield return new WaitForSeconds(swapDuration + termDuration);
@@ -256,7 +255,6 @@ public class Board : MonoBehaviour
             // 새 dots 생성해서 떨어트리기
             for (int n = 0; n < nullCount; n++)
             {
-                // DotColor randomColor = (DotColor)UnityEngine.Random.Range(0, objectPoolManager.dotPrefabs.Length);
                 Vector2 tempPosition = new Vector2(i, height + n);
                 GameObject piece = objectPoolManager.GetObject();
                 piece.transform.position = tempPosition;
