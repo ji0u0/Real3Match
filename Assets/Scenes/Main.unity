@@ -327,14 +327,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   poolSize: 10
-  dotPrefabs:
-  - {fileID: 6804130996459068201, guid: f394f1d1f3b8f24448bf6f153c40ee43, type: 3}
-  - {fileID: 2521501365592973870, guid: 11ad461d9681d7e42a4cab3e927e7a83, type: 3}
-  - {fileID: 8175064749107916915, guid: 9425e97c7d62589429ba6d78fd39054f, type: 3}
-  - {fileID: 7241418709431192351, guid: 1c07a55e73b9d6b41b1c7e3b47e7e19f, type: 3}
-  - {fileID: 8579488614922212117, guid: a9e359417e0971c47a8b6a8363018eaf, type: 3}
-  - {fileID: 6967427955554585460, guid: 6d19943159e1b5743b874e4989eb2bc3, type: 3}
-  - {fileID: 6294343275524512779, guid: 00d2c5e6f24babc47bab4e18a275ec6f, type: 3}
 --- !u!1 &1306533518
 GameObject:
   m_ObjectHideFlags: 0

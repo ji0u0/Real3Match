@@ -134,7 +134,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   isMatched: 0
-  color: 0
+  color: 5
   col: 0
   row: 0
   board: {fileID: 0}
+  swapDuration: 0.5

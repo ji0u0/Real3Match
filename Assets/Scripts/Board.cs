@@ -19,7 +19,8 @@ public class Board : MonoBehaviour
 
     // Dots
     public Dot[,] allDots;
-    private HashSet<Dot> tempDots = new HashSet<Dot>();
+    private HashSet<Dot> matchedDots = new HashSet<Dot>();
+    private HashSet<Dot> extraScoreDots = new HashSet<Dot>();
 
     // Swap
     public Action<Vector2> MouseDownAction;
@@ -55,9 +56,9 @@ public class Board : MonoBehaviour
         {
             for (int j = 0; j < height; j++)
             {
-                int randomColor = UnityEngine.Random.Range(0, objectPoolManager.dotPrefabs.Length);
+                // int randomColor = UnityEngine.Random.Range(0, objectPoolManager.dotPrefabs.Length);
                 Vector2 tempPosition = new Vector2(i, j);
-                GameObject piece = objectPoolManager.GetObject((DotColor)randomColor);
+                GameObject piece = objectPoolManager.GetObject();
                 piece.transform.position = tempPosition;
                 allDots[i, j] = piece.GetComponent<Dot>();
                 allDots[i, j].board = this;
@@ -66,8 +67,57 @@ public class Board : MonoBehaviour
             }
         }
 
-        // 시작할 때 Match 검사
-        StartCoroutine(ProcessMatchesCo());
+        // Match 확인
+        while (true)
+        {
+            if (FindAllMatches())
+            {
+                // 시작하자마자 match된 dot들은 교체한다
+                foreach (Dot dot in matchedDots)
+                {
+                    // match된 dot 삭제
+                    int i = dot.col;
+                    int j = dot.row;
+                    allDots[dot.col, dot.row] = null;
+                    objectPoolManager.ReturnToPool(dot.gameObject);
+
+                    // 삭제된 dot 다시 생성
+                    GameObject piece = objectPoolManager.GetObject();
+                    piece.transform.position = new Vector2(i, j);
+                    allDots[i, j] = piece.GetComponent<Dot>();
+                    allDots[i, j].board = this;
+                    allDots[i, j].col = i;
+                    allDots[i, j].row = j;
+                }   
+                matchedDots.Clear();
+            }
+            else if (!CheckCanMatch())
+            {
+                // 시작하자마자 match할 dot이 없다면 전체 초기화한다
+                for (int i = 0; i < width; i++)
+                {
+                    for (int j = 0; j < height; j++)
+                    {
+                        objectPoolManager.ReturnToPool(allDots[i, j].gameObject);
+                        allDots[i, j] = null;
+
+                        Vector2 tempPosition = new Vector2(i, j);
+                        GameObject piece = objectPoolManager.GetObject();
+                        piece.transform.position = tempPosition;
+                        allDots[i, j] = piece.GetComponent<Dot>();
+                        allDots[i, j].board = this;
+                        allDots[i, j].col = i;
+                        allDots[i, j].row = j;
+                    }
+                }
+            }
+            else
+            {
+                // 조건을 만족하면 게임을 시작한다
+                currentState = GameState.touch;
+                break;
+            }
+        }
     }
 
     // Mouse controll
@@ -136,6 +186,7 @@ public class Board : MonoBehaviour
             for (int j = 0; j < height; j ++)
             {
                 Dot currentDot = allDots[i, j];
+                DotColor currentColor = currentDot.color;
                 if(currentDot != null)
                 {
                     if (i > 0 && i < width - 1) // 가로 체크
@@ -143,10 +194,10 @@ public class Board : MonoBehaviour
                         Dot leftDot = allDots[i - 1, j];
                         Dot rightDot = allDots[i + 1, j];
 
-                        if (leftDot != null && leftDot.color == currentDot.color &&
-                            rightDot != null && rightDot.color == currentDot.color)
+                        if (leftDot != null && leftDot.color == currentColor &&
+                            rightDot != null && rightDot.color == currentColor)
                         {
-                            tempDots.AddRange(new Dot[] {currentDot, leftDot, rightDot});
+                            matchedDots.AddRange(new Dot[] {currentDot, leftDot, rightDot});
                             bMatchesOnBoard = true;
                         }
                     }
@@ -158,7 +209,7 @@ public class Board : MonoBehaviour
                         if (upDot != null && upDot.color == currentDot.color &&
                             downDot != null && downDot.color == currentDot.color)
                         {
-                            tempDots.AddRange(new Dot[] {currentDot, upDot, downDot});
+                            matchedDots.AddRange(new Dot[] {currentDot, upDot, downDot});
                             bMatchesOnBoard = true;
                         }
                     }
@@ -171,14 +222,14 @@ public class Board : MonoBehaviour
     // 부순다 : 매치된 Dot을 부순다 + 스코어 업뎃
     private void DestroyMatches()
     {
-        foreach (Dot dot in tempDots)
+        foreach (Dot dot in matchedDots)
         {
             allDots[dot.col, dot.row] = null;
-            objectPoolManager.PoolObject(dot.gameObject);
+            objectPoolManager.ReturnToPool(dot.gameObject);
             scoreManager.score++;
         }
 
-        tempDots.Clear();
+        matchedDots.Clear();
         scoreManager.SetScore();
     }
 
@@ -205,9 +256,9 @@ public class Board : MonoBehaviour
             // 새 dots 생성해서 떨어트리기
             for (int n = 0; n < nullCount; n++)
             {
-                DotColor randomColor = (DotColor)UnityEngine.Random.Range(0, objectPoolManager.dotPrefabs.Length);
+                // DotColor randomColor = (DotColor)UnityEngine.Random.Range(0, objectPoolManager.dotPrefabs.Length);
                 Vector2 tempPosition = new Vector2(i, height + n);
-                GameObject piece = objectPoolManager.GetObject(randomColor);
+                GameObject piece = objectPoolManager.GetObject();
                 piece.transform.position = tempPosition;
                 allDots[i, height - nullCount + n] = piece.GetComponent<Dot>();
                 allDots[i, height - nullCount + n].board = this;
@@ -295,16 +346,13 @@ public class Board : MonoBehaviour
     // 매치할 수 있는게 있는가? = 게임 진행이 가능한가?
     private bool CheckCanMatch()
     {
-        Dot currentDot;
-        Dot leftDot;
-        Dot rightDot;
-        Dot upDot;
-        Dot downDot;
-        Dot doubleLeftDot;
-        Dot doubleRightDot;
-        Dot doubleUpDot;
-        Dot doubleDownDot;
-        Dot tempDot;
+        // 상하 좌우
+        int[] dx = { 0, 0, -1, 1 };
+        int[] dy = { 1, -1, 0, 0 };
+
+        Dot currentDot; // 현재 dot
+        Dot checkDot; // 현재 dot과 같은 색 dot
+        Dot tempDot; // match 가능한 자리에 있는 dot
 
         for (int i = 0; i < width; i++)
         {
@@ -313,228 +361,309 @@ public class Board : MonoBehaviour
                 currentDot = allDots[i, j];
                 DotColor color = currentDot.color;
                 
-                if(currentDot)
+                if(currentDot == null) continue;
+                for (int d = 0; d < 4; d++)
                 {
-                    if (i > 0)
+                    if (0 <= i + dx[d] && i + dx[d] <= width - 1
+                        && 0 <= j + dy[d] && j + dy[d] <= height - 1)
                     {
-                        leftDot = allDots[i - 1, j];
-                        if (leftDot != null && leftDot.color == color)
+                        // 연달아 같은 색이 있는 경우
+                        checkDot = allDots[i + dx[d], j + dy[d]];
+                        if (checkDot == null || checkDot.color != color) continue;
+
+                        if (0 <= i + (dx[d] == 0 ? 1 : 2 * dx[d]) && i + (dx[d] == 0 ? 1 : 2 * dx[d]) <= width - 1
+                            && 0 <= j + (dy[d] == 0 ? 1 : 2 * dy[d]) && j + (dy[d] == 0 ? 1 : 2 * dy[d]) <= height - 1)
                         {
-                            if (i < width - 1 && j < height - 1)
-                            {
-                                tempDot = allDots[i + 1, j + 1];
-                                if (tempDot != null && tempDot.color == color) return true;
-                            }
-                            if (i < width - 1 && j > 0)
-                            {
-                                tempDot = allDots[i + 1, j - 1];
-                                if (tempDot != null && tempDot.color == color) return true;
-                            }
-                            if (i < width - 2)
-                            {
-                                tempDot = allDots[i + 2, j];
-                                if (tempDot != null && tempDot.color == color) return true;
-                            }
-                            if (i > 1 && j < height - 1)
-                            {
-                                tempDot = allDots[i - 2, j + 1];
-                                if (tempDot != null && tempDot.color == color) return true;
-                            }
-                            if (i > 1 && j > 0)
-                            {
-                                tempDot = allDots[i - 2, j - 1];
-                                if (tempDot != null && tempDot.color == color) return true;
-                            }
-                            if (i > 2)
-                            {
-                                tempDot = allDots[i - 3, j];
-                                if (tempDot != null && tempDot.color == color) return true;
-                            }
+                            tempDot = allDots[i + (dx[d] == 0 ? 1 : 2 * dx[d]),
+                                              j + (dy[d] == 0 ? 1 : 2 * dy[d])];
+                            if (tempDot != null && tempDot.color == color) return true;
+                        }
+                        
+                        if (0 <= i + (dx[d] == 0 ? -1 : 2 * dx[d]) && i + (dx[d] == 0 ? -1 : 2 * dx[d]) <= width - 1
+                            && 0 <= j + (dy[d] == 0 ? -1 : 2 * dy[d]) && j + (dy[d] == 0 ? -1 : 2 * dy[d]) <= height - 1)
+                        {
+                            tempDot = allDots[i + (dx[d] == 0 ? -1 : 2 * dx[d]),
+                                              j + (dy[d] == 0 ? -1 : 2 * dy[d])];
+                            if (tempDot != null && tempDot.color == color) return true;
+                        }
+                        
+                        if (0 <= i + 3 * dx[d] && i + 3 * dx[d] <= width - 1
+                            && 0 <= j + 3 * dy[d] && j + 3 * dy[d] <= height - 1)
+                        {
+                            tempDot = allDots[i + 3 * dx[d], j + 3 * dy[d]];
+                            if (tempDot != null && tempDot.color == color) return true;
                         }
                     }
-                    if (i < width - 1)
+                }
+
+                for (int d = 0; d < 4; d++)
+                {
+                    if (0 <= i + 2 * dx[d] && i + 2 * dx[d] <= width - 1
+                        && 0 <= j + 2 * dy[d] && j + 2 * dy[d] <= height - 1)
                     {
-                        rightDot = allDots[i + 1, j];
-                        if (rightDot != null && rightDot.color == color)
+                        // 한 칸 띄우고 같은 색이 있는 경우
+                        checkDot = allDots[i + 2 * dx[d], j + 2 * dy[d]];
+                        if (checkDot == null || checkDot.color != color) continue;
+                        
+                        if (0 <= i + (dx[d] == 0 ? 1 : dx[d]) && i + (dx[d] == 0 ? 1 : dx[d]) <= width - 1
+                            && 0 <= j + (dy[d] == 0 ? 1 : dy[d]) && j + (dy[d] == 0 ? 1 : dy[d]) <= height - 1)
                         {
-                            if (i > 0 && j < height - 1)
-                            {
-                                tempDot = allDots[i - 1, j + 1];
-                                if (tempDot != null && tempDot.color == color) return true;
-                            }
-                            if (i > 0 && j > 0)
-                            {
-                                tempDot = allDots[i - 1, j - 1];
-                                if (tempDot != null && tempDot.color == color) return true;
-                            }
-                            if (i > 1)
-                            {
-                                tempDot = allDots[i - 2, j];
-                                if (tempDot != null && tempDot.color == color) return true;
-                            }
-                            if (i < width - 2 && j < height - 1)
-                            {
-                                tempDot = allDots[i + 2, j + 1];
-                                if (tempDot != null && tempDot.color == color) return true;
-                            }
-                            if (i < width - 2 && j > 0)
-                            {
-                                tempDot = allDots[i + 2, j - 1];
-                                if (tempDot != null && tempDot.color == color) return true;
-                            }
-                            if (i < width - 3)
-                            {
-                                tempDot = allDots[i + 3, j];
-                                if (tempDot != null && tempDot.color == color) return true;
-                            }
+                            tempDot = allDots[i + (dx[d] == 0 ? 1 : dx[d]),
+                                              j + (dy[d] == 0 ? 1 : dy[d])];
+                            if (tempDot != null && tempDot.color == color) return true;
                         }
-                    }
-                    if (j < height - 1)
-                    {
-                        upDot = allDots[i, j + 1];
-                        if (upDot != null && upDot.color == color)
+
+                        if (0 <= i + (dx[d] == 0 ? -1 : dx[d]) && i + (dx[d] == 0 ? -1 : dx[d]) <= width - 1
+                            && 0 <= j + (dy[d] == 0 ? -1 : dy[d]) && j + (dy[d] == 0 ? -1 : dy[d]) <= height - 1)
                         {
-                            if (j > 0 && i < width - 1)
-                            {
-                                tempDot = allDots[i + 1, j - 1];
-                                if (tempDot != null && tempDot.color == color) return true;
-                            }
-                            if (j > 0 && i > 0)
-                            {
-                                tempDot = allDots[i - 1, j - 1];
-                                if (tempDot != null && tempDot.color == color) return true;
-                            }
-                            if (j > 1)
-                            {
-                                tempDot = allDots[i, j - 2];
-                                if (tempDot != null && tempDot.color == color) return true;
-                            }
-                            if (j < height - 2 && i < width - 1)
-                            {
-                                tempDot = allDots[i + 1, j + 2];
-                                if (tempDot != null && tempDot.color == color) return true;
-                            }
-                            if (j < height - 2 && i > 0)
-                            {
-                                tempDot = allDots[i - 1, j + 2];
-                                if (tempDot != null && tempDot.color == color) return true;
-                            }
-                            if (j < height - 3)
-                            {
-                                tempDot = allDots[i, j + 3];
-                                if (tempDot != null && tempDot.color == color) return true;
-                            }
-                        }
-                    }
-                    if (j > 0)
-                    {
-                        downDot = allDots[i, j - 1];
-                        if (downDot != null && downDot.color == color)
-                        {
-                            if (j < height - 1 && i < width - 1)
-                            {
-                                tempDot = allDots[i + 1, j + 1];
-                                if (tempDot != null && tempDot.color == color) return true;
-                            }
-                            if (j < height - 1 && i > 0)
-                            {
-                                tempDot = allDots[i - 1, j + 1];
-                                if (tempDot != null && tempDot.color == color) return true;
-                            }
-                            if (j < height - 2)
-                            {
-                                tempDot = allDots[i, j + 2];
-                                if (tempDot != null && tempDot.color == color) return true;
-                            }
-                            if (j > 1 && i < width - 1)
-                            {
-                                tempDot = allDots[i + 1, j - 2];
-                                if (tempDot != null && tempDot.color == color) return true;
-                            }
-                            if (j > 1 && i > 0)
-                            {
-                                tempDot = allDots[i - 1, j - 2];
-                                if (tempDot != null && tempDot.color == color) return true;
-                            }
-                            if (j > 2)
-                            {
-                                tempDot = allDots[i, j - 3];
-                                if (tempDot != null && tempDot.color == color) return true;
-                            }
-                        }
-                    }
-                    if (i > 1)
-                    {
-                        doubleLeftDot = allDots[i - 2, j];
-                        if (doubleLeftDot != null && doubleLeftDot.color == color)
-                        {
-                            if (j < height - 1)
-                            {
-                                tempDot = allDots[i - 1, j + 1];
-                                if (tempDot != null && tempDot.color == color) return true;
-                            }
-                            if (j > 0)
-                            {
-                                tempDot = allDots[i - 1, j - 1];
-                                if (tempDot != null && tempDot.color == color) return true;
-                            }
-                        }
-                    }
-                    if (i < width - 2)
-                    {
-                        doubleRightDot = allDots[i + 2, j];
-                        if (doubleRightDot != null && doubleRightDot.color == color)
-                        {
-                            if (j < height - 1)
-                            {
-                                tempDot = allDots[i + 1, j + 1];
-                                if (tempDot != null && tempDot.color == color) return true;
-                            }
-                            if (j > 0)
-                            {
-                                tempDot = allDots[i + 1, j - 1];
-                                if (tempDot != null && tempDot.color == color) return true;
-                            }
-                        }
-                    }
-                    if (j < height - 2)
-                    {
-                        doubleUpDot = allDots[i, j + 2];
-                        if (doubleUpDot != null && doubleUpDot.color == color)
-                        {
-                            if (i > 0)
-                            {
-                                tempDot = allDots[i - 1, j + 1];
-                                if (tempDot != null && tempDot.color == color) return true;
-                            }
-                            if (i < width - 1)
-                            {
-                                tempDot = allDots[i + 1, j + 1];
-                                if (tempDot != null && tempDot.color == color) return true;
-                            }
-                        }
-                    }
-                    if (j > 1)
-                    {
-                        doubleDownDot = allDots[i, j - 2];
-                        if (doubleDownDot != null && doubleDownDot.color == color)
-                        {
-                            if (i > 0)
-                            {
-                                tempDot = allDots[i - 1, j - 1];
-                                if (tempDot != null && tempDot.color == color) return true;
-                            }
-                            if (i < width - 1)
-                            {
-                                tempDot = allDots[i + 1, j - 1];
-                                if (tempDot != null && tempDot.color == color) return true;
-                            }
+                            tempDot = allDots[i + (dx[d] == 0 ? -1 : dx[d]),
+                                              j + (dy[d] == 0 ? -1 : dy[d])];
+                            if (tempDot != null && tempDot.color == color) return true;
                         }
                     }
                 }
             }
         }
-
         return false;
+
+        // Dot currentDot;
+        // Dot leftDot;
+        // Dot rightDot;
+        // Dot upDot;
+        // Dot downDot;
+        // Dot doubleLeftDot;
+        // Dot doubleRightDot;
+        // Dot doubleUpDot;
+        // Dot doubleDownDot;
+        // Dot tempDot;
+
+        // for (int i = 0; i < width; i++)
+        // {
+        //     for (int j = 0; j < height; j++)
+        //     {
+        //         currentDot = allDots[i, j];
+        //         DotColor color = currentDot.color;
+                
+        //         if(currentDot)
+        //         {
+        //             if (i > 0)
+        //             {
+        //                 leftDot = allDots[i - 1, j];
+        //                 if (leftDot != null && leftDot.color == color)
+        //                 {
+        //                     if (i < width - 1 && j < height - 1)
+        //                     {
+        //                         tempDot = allDots[i + 1, j + 1];
+        //                         if (tempDot != null && tempDot.color == color) return true;
+        //                     }
+        //                     if (i < width - 1 && j > 0)
+        //                     {
+        //                         tempDot = allDots[i + 1, j - 1];
+        //                         if (tempDot != null && tempDot.color == color) return true;
+        //                     }
+        //                     if (i < width - 2)
+        //                     {
+        //                         tempDot = allDots[i + 2, j];
+        //                         if (tempDot != null && tempDot.color == color) return true;
+        //                     }
+        //                     if (i > 1 && j < height - 1)
+        //                     {
+        //                         tempDot = allDots[i - 2, j + 1];
+        //                         if (tempDot != null && tempDot.color == color) return true;
+        //                     }
+        //                     if (i > 1 && j > 0)
+        //                     {
+        //                         tempDot = allDots[i - 2, j - 1];
+        //                         if (tempDot != null && tempDot.color == color) return true;
+        //                     }
+        //                     if (i > 2)
+        //                     {
+        //                         tempDot = allDots[i - 3, j];
+        //                         if (tempDot != null && tempDot.color == color) return true;
+        //                     }
+        //                 }
+        //             }
+        //             if (i < width - 1)
+        //             {
+        //                 rightDot = allDots[i + 1, j];
+        //                 if (rightDot != null && rightDot.color == color)
+        //                 {
+        //                     if (i > 0 && j < height - 1)
+        //                     {
+        //                         tempDot = allDots[i - 1, j + 1];
+        //                         if (tempDot != null && tempDot.color == color) return true;
+        //                     }
+        //                     if (i > 0 && j > 0)
+        //                     {
+        //                         tempDot = allDots[i - 1, j - 1];
+        //                         if (tempDot != null && tempDot.color == color) return true;
+        //                     }
+        //                     if (i > 1)
+        //                     {
+        //                         tempDot = allDots[i - 2, j];
+        //                         if (tempDot != null && tempDot.color == color) return true;
+        //                     }
+        //                     if (i < width - 2 && j < height - 1)
+        //                     {
+        //                         tempDot = allDots[i + 2, j + 1];
+        //                         if (tempDot != null && tempDot.color == color) return true;
+        //                     }
+        //                     if (i < width - 2 && j > 0)
+        //                     {
+        //                         tempDot = allDots[i + 2, j - 1];
+        //                         if (tempDot != null && tempDot.color == color) return true;
+        //                     }
+        //                     if (i < width - 3)
+        //                     {
+        //                         tempDot = allDots[i + 3, j];
+        //                         if (tempDot != null && tempDot.color == color) return true;
+        //                     }
+        //                 }
+        //             }
+        //             if (j < height - 1)
+        //             {
+        //                 upDot = allDots[i, j + 1];
+        //                 if (upDot != null && upDot.color == color)
+        //                 {
+        //                     if (j > 0 && i < width - 1)
+        //                     {
+        //                         tempDot = allDots[i + 1, j - 1];
+        //                         if (tempDot != null && tempDot.color == color) return true;
+        //                     }
+        //                     if (j > 0 && i > 0)
+        //                     {
+        //                         tempDot = allDots[i - 1, j - 1];
+        //                         if (tempDot != null && tempDot.color == color) return true;
+        //                     }
+        //                     if (j > 1)
+        //                     {
+        //                         tempDot = allDots[i, j - 2];
+        //                         if (tempDot != null && tempDot.color == color) return true;
+        //                     }
+        //                     if (j < height - 2 && i < width - 1)
+        //                     {
+        //                         tempDot = allDots[i + 1, j + 2];
+        //                         if (tempDot != null && tempDot.color == color) return true;
+        //                     }
+        //                     if (j < height - 2 && i > 0)
+        //                     {
+        //                         tempDot = allDots[i - 1, j + 2];
+        //                         if (tempDot != null && tempDot.color == color) return true;
+        //                     }
+        //                     if (j < height - 3)
+        //                     {
+        //                         tempDot = allDots[i, j + 3];
+        //                         if (tempDot != null && tempDot.color == color) return true;
+        //                     }
+        //                 }
+        //             }
+        //             if (j > 0)
+        //             {
+        //                 downDot = allDots[i, j - 1];
+        //                 if (downDot != null && downDot.color == color)
+        //                 {
+        //                     if (j < height - 1 && i < width - 1)
+        //                     {
+        //                         tempDot = allDots[i + 1, j + 1];
+        //                         if (tempDot != null && tempDot.color == color) return true;
+        //                     }
+        //                     if (j < height - 1 && i > 0)
+        //                     {
+        //                         tempDot = allDots[i - 1, j + 1];
+        //                         if (tempDot != null && tempDot.color == color) return true;
+        //                     }
+        //                     if (j < height - 2)
+        //                     {
+        //                         tempDot = allDots[i, j + 2];
+        //                         if (tempDot != null && tempDot.color == color) return true;
+        //                     }
+        //                     if (j > 1 && i < width - 1)
+        //                     {
+        //                         tempDot = allDots[i + 1, j - 2];
+        //                         if (tempDot != null && tempDot.color == color) return true;
+        //                     }
+        //                     if (j > 1 && i > 0)
+        //                     {
+        //                         tempDot = allDots[i - 1, j - 2];
+        //                         if (tempDot != null && tempDot.color == color) return true;
+        //                     }
+        //                     if (j > 2)
+        //                     {
+        //                         tempDot = allDots[i, j - 3];
+        //                         if (tempDot != null && tempDot.color == color) return true;
+        //                     }
+        //                 }
+        //             }
+        //             if (i > 1)
+        //             {
+        //                 doubleLeftDot = allDots[i - 2, j];
+        //                 if (doubleLeftDot != null && doubleLeftDot.color == color)
+        //                 {
+        //                     if (j < height - 1)
+        //                     {
+        //                         tempDot = allDots[i - 1, j + 1];
+        //                         if (tempDot != null && tempDot.color == color) return true;
+        //                     }
+        //                     if (j > 0)
+        //                     {
+        //                         tempDot = allDots[i - 1, j - 1];
+        //                         if (tempDot != null && tempDot.color == color) return true;
+        //                     }
+        //                 }
+        //             }
+        //             if (i < width - 2)
+        //             {
+        //                 doubleRightDot = allDots[i + 2, j];
+        //                 if (doubleRightDot != null && doubleRightDot.color == color)
+        //                 {
+        //                     if (j < height - 1)
+        //                     {
+        //                         tempDot = allDots[i + 1, j + 1];
+        //                         if (tempDot != null && tempDot.color == color) return true;
+        //                     }
+        //                     if (j > 0)
+        //                     {
+        //                         tempDot = allDots[i + 1, j - 1];
+        //                         if (tempDot != null && tempDot.color == color) return true;
+        //                     }
+        //                 }
+        //             }
+        //             if (j < height - 2)
+        //             {
+        //                 doubleUpDot = allDots[i, j + 2];
+        //                 if (doubleUpDot != null && doubleUpDot.color == color)
+        //                 {
+        //                     if (i > 0)
+        //                     {
+        //                         tempDot = allDots[i - 1, j + 1];
+        //                         if (tempDot != null && tempDot.color == color) return true;
+        //                     }
+        //                     if (i < width - 1)
+        //                     {
+        //                         tempDot = allDots[i + 1, j + 1];
+        //                         if (tempDot != null && tempDot.color == color) return true;
+        //                     }
+        //                 }
+        //             }
+        //             if (j > 1)
+        //             {
+        //                 doubleDownDot = allDots[i, j - 2];
+        //                 if (doubleDownDot != null && doubleDownDot.color == color)
+        //                 {
+        //                     if (i > 0)
+        //                     {
+        //                         tempDot = allDots[i - 1, j - 1];
+        //                         if (tempDot != null && tempDot.color == color) return true;
+        //                     }
+        //                     if (i < width - 1)
+        //                     {
+        //                         tempDot = allDots[i + 1, j - 1];
+        //                         if (tempDot != null && tempDot.color == color) return true;
+        //                     }
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
     }
 }
