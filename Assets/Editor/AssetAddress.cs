@@ -8,21 +8,15 @@ public class AssetAddress : MonoBehaviour
     [MenuItem("Tools/Update Asset Addresses")]
     private static void UpdateAssetAddresses()
     {
-        ObjectPool objectPool = FindObjectOfType<ObjectPool>();
-        if (objectPool == null)
+        Board board = FindObjectOfType<Board>();
+        if (board == null)
         {
             Debug.LogError("ObjectPool component not found in the scene.");
             return;
         }
 
-        string[] searchFolders = new[] {
-            "Assets/Prefabs/Dots"
-        };
+        string[] guids = AssetDatabase.FindAssets("t:Prefab", new[] {board.searchFolderAddress});
 
-        objectPool.assetAddresses = new Dictionary<DotColor, string>();
-
-        string[] guids = AssetDatabase.FindAssets("t:Prefab", searchFolders);
-        
         foreach (string guid in guids)
         {
             string path = AssetDatabase.GUIDToAssetPath(guid);
@@ -31,14 +25,12 @@ public class AssetAddress : MonoBehaviour
 
             if (dot != null)
             {
-                // objectPool.assetAddresses.Add(dot.color, path);
-                objectPool.assetAddresses[dot.color] = path;
-                Debug.Log(objectPool.assetAddresses[dot.color]);
-                EditorUtility.SetDirty(objectPool);
+                board.assetAddresses.Add(path);
+                // Debug.Log(board.assetAddresses[dot.color]);
+                EditorUtility.SetDirty(board);
             }
         }
 
-        AssetDatabase.SaveAssets();
         Debug.Log("Asset addresses updated");
     }
 }

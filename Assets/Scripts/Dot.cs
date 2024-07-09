@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Scripting.APIUpdating;
+using System;
 using DG.Tweening;
 
 public enum DotColor
@@ -18,45 +19,43 @@ public enum DotColor
 
 public class Dot : MonoBehaviour
 {
-    public bool isMatched;
     public DotColor color;
+    public string address;
 
     // Board
-    public int col;
-    public int row;
-    public Board board;
+    // public int col;
+    // public int row;
+    public Vector2Int position = new Vector2Int();
     
     // Touch
     private Camera mainCamera;
 
-    // Move
-    public float swapDuration;
+    public Action<Vector2> MouseDownAction;
+    public Action<Vector2, Dot> MouseUpAction;
 
     // Start is called before the first frame update
     void Start()
     {
         mainCamera = Camera.main;
-        swapDuration = board.swapDuration;
     }
 
     private void OnMouseDown()
     {
-        board.MouseDownAction(mainCamera.ScreenToWorldPoint(Input.mousePosition));
-
+        MouseDownAction(mainCamera.ScreenToWorldPoint(Input.mousePosition));
     }
 
     private void OnMouseUp()
     {
-        board.MouseUpAction(mainCamera.ScreenToWorldPoint(Input.mousePosition), this);
+        MouseUpAction(mainCamera.ScreenToWorldPoint(Input.mousePosition), this);
     }
 
     // 입력된 좌표값에 따라 이동시킨다
-    public void MoveTo(int targetCol, int targetRow) 
-    {
-        col = targetCol;
-        row = targetRow;
-        Vector2 targetPosition = new Vector2(col, row);
-        transform.DOMove(targetPosition, swapDuration);
-        board.allDots[col, row] = this;
-    }
+    // public void MoveTo(int targetCol, int targetRow) 
+    // {
+    //     col = targetCol;
+    //     row = targetRow;
+    //     Vector2 targetPosition = new Vector2(col, row);
+    //     transform.DOMove(targetPosition, swapDuration);
+    //     board.allDots[col, row] = this;
+    // }
 }
