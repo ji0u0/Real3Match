@@ -25,7 +25,7 @@ public class Board : MonoBehaviour
 
     // Dots
     private Dot[,] allDots;
-    // HashSet<Dot> matchedDots = new HashSet<Dot>();
+    HashSet<Dot> matchedDots = new HashSet<Dot>();
 
     // Touch
     private Vector2 initialTouchPosition;
@@ -76,7 +76,7 @@ public class Board : MonoBehaviour
         }
     }
 
-    public Dot GetDotFromPool()
+    private Dot GetDotFromPool()
     {
         int randomIndex = Random.Range(0, assetAddresses.Count);
         string address = assetAddresses[randomIndex];
@@ -158,7 +158,6 @@ public class Board : MonoBehaviour
         }
     }
 
-
     // Match 프로세스를 시작 + GameState 제어
     private IEnumerator ProcessMatchesCo()
     {
@@ -167,15 +166,19 @@ public class Board : MonoBehaviour
         yield return new WaitForSeconds(swapDuration); // wait animation
 
         // 찾는다 -> 매치된 Dot이 있는가?
-        while (FindAllMatches().Count != 0)
+        HashSet<Dot> matchedDots = FindAllMatches();
+        while (matchedDots.Count != 0)
         {
             // Match된 Dot이 있다면 부순다
-            DestroyMatches(FindAllMatches());
+            DestroyMatches(matchedDots);
             yield return new WaitForSeconds(termDuration);
 
             // 부수고 나면 리필한다
             StartCoroutine(RefillRowCo());
             yield return new WaitForSeconds(swapDuration + termDuration);
+
+            // 다시 검사
+            matchedDots = FindAllMatches();
         }
 
         // Match된 Dot이 없다면 Match할 수 있는 조합이 있는지 확인한다
@@ -194,7 +197,8 @@ public class Board : MonoBehaviour
     // 찾는다 : 매치된 dot을 저장해 반환한다
     private HashSet<Dot> FindAllMatches() // Matchset return 값으로
     {
-        HashSet<Dot> matchedDots = new HashSet<Dot>();
+        matchedDots.Clear();
+
         for (int i = 0; i < width; i ++)
         {
             for (int j = 0; j < height; j ++)
@@ -232,10 +236,12 @@ public class Board : MonoBehaviour
                 }
             }
         }
+
         return matchedDots;
     }
 
     // 부순다 : 매치된 Dot을 부순다 + 스코어 업뎃
+    // private void DestroyMatches(HashSet<Dot> matchedDots)
     private void DestroyMatches(HashSet<Dot> matchedDots)
     {
         foreach (Dot dot in matchedDots)
@@ -245,7 +251,6 @@ public class Board : MonoBehaviour
             scoreManager.score++;
         }
 
-        matchedDots.Clear();
         scoreManager.SetScore();
     }
 
@@ -308,7 +313,7 @@ public class Board : MonoBehaviour
     }
 
     // 입력 받은 dot의 위치를 바꾼다 (currentDot <-> otherDot)
-    public void HandleDotSwap(Dot dot)
+    private void HandleDotSwap(Dot dot)
     {
         float distanceX = finalTouchPosition.x - initialTouchPosition.x;
         float distanceY = finalTouchPosition.y - initialTouchPosition.y;
@@ -359,7 +364,7 @@ public class Board : MonoBehaviour
         }
     }
 
-    public IEnumerator DotSwapCo()
+    private IEnumerator DotSwapCo()
     {
         yield return new WaitForSeconds(swapDuration); // wait animation
 
@@ -379,7 +384,7 @@ public class Board : MonoBehaviour
         otherDot = null;
     }
 
-    public void DotMoveTo(Dot dot, Vector2Int targetPosition) 
+    private void DotMoveTo(Dot dot, Vector2Int targetPosition) 
     {
         dot.position = targetPosition;
         dot.transform.DOMove((Vector2)targetPosition, swapDuration);

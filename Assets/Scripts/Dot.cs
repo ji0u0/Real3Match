@@ -48,14 +48,4 @@ public class Dot : MonoBehaviour
     {
         MouseUpAction(mainCamera.ScreenToWorldPoint(Input.mousePosition), this);
     }
-
-    // 입력된 좌표값에 따라 이동시킨다
-    // public void MoveTo(int targetCol, int targetRow) 
-    // {
-    //     col = targetCol;
-    //     row = targetRow;
-    //     Vector2 targetPosition = new Vector2(col, row);
-    //     transform.DOMove(targetPosition, swapDuration);
-    //     board.allDots[col, row] = this;
-    // }
 }
