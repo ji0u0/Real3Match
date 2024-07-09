@@ -1,10 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
-using Unity.VisualScripting;
 using UnityEngine;
-using UnityEngine.Scripting.APIUpdating;
 using System;
-using DG.Tweening;
 
 public enum DotColor
 {
@@ -23,8 +20,6 @@ public class Dot : MonoBehaviour
     public string address;
 
     // Board
-    // public int col;
-    // public int row;
     public Vector2Int position = new Vector2Int();
     
     // Touch
