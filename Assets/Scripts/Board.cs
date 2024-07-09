@@ -1,11 +1,9 @@
 using System.Collections;
 using System.Collections.Generic;
-using Unity.VisualScripting;
 using UnityEditor;
 using UnityEngine;
-using Unity.Collections;
 using DG.Tweening;
-using UnityEditor.Experimental.GraphView;
+using Unity.VisualScripting;
 
 public enum GameState
 {
@@ -27,19 +25,22 @@ public class Board : MonoBehaviour
 
     // Dots
     private Dot[,] allDots;
+    // HashSet<Dot> matchedDots = new HashSet<Dot>();
 
-    // Swap
+    // Touch
     private Vector2 initialTouchPosition;
     private Vector2 finalTouchPosition;
     private Vector2Int previousPosition;
     private bool checkTouch;
+
+    // Swap
     private Dot currentDot;
     private Dot otherDot;
-    private float swapAngle;
     public float swapDuration = .3f;
     public float termDuration = .1f;
     public float swapResist = 1f;
 
+    // Manager
     public Score scoreManager;
     public ObjectPool objectPoolManager;
 
@@ -116,7 +117,7 @@ public class Board : MonoBehaviour
         {
             if (FindAllMatches().Count != 0) // Match된 dot들을 교체한다
             {
-                Vector2Int tempPosition = new Vector2Int();
+                Vector2Int tempPosition;
 
                 foreach (Dot dot in FindAllMatches())
                 {
@@ -149,9 +150,8 @@ public class Board : MonoBehaviour
                     }
                 }
             }
-            else
+            else // 조건을 만족하면 반복을 멈추고 게임을 시작한다
             {
-                // 조건을 만족하면 반복을 멈추고 게임을 시작한다
                 currentState = GameState.touch;
                 break;
             }
@@ -164,7 +164,6 @@ public class Board : MonoBehaviour
     {
         // 매치가 시작되면 터치가 불가능하게 만든다
         currentState = GameState.wait;
-
         yield return new WaitForSeconds(swapDuration); // wait animation
 
         // 찾는다 -> 매치된 Dot이 있는가?
@@ -172,12 +171,10 @@ public class Board : MonoBehaviour
         {
             // Match된 Dot이 있다면 부순다
             DestroyMatches(FindAllMatches());
-
             yield return new WaitForSeconds(termDuration);
 
             // 부수고 나면 리필한다
             StartCoroutine(RefillRowCo());
-
             yield return new WaitForSeconds(swapDuration + termDuration);
         }
 
@@ -198,7 +195,6 @@ public class Board : MonoBehaviour
     private HashSet<Dot> FindAllMatches() // Matchset return 값으로
     {
         HashSet<Dot> matchedDots = new HashSet<Dot>();
-        
         for (int i = 0; i < width; i ++)
         {
             for (int j = 0; j < height; j ++)
@@ -215,7 +211,9 @@ public class Board : MonoBehaviour
                         if (leftDot != null && leftDot.color == currentColor &&
                             rightDot != null && rightDot.color == currentColor)
                         {
-                            matchedDots.AddRange(new Dot[] {currentDot, leftDot, rightDot});
+                            matchedDots.Add(currentDot);
+                            matchedDots.Add(leftDot);
+                            matchedDots.Add(rightDot);
                         }
                     }
                     if (j > 0 && j < height - 1) // 세로 체크
@@ -226,7 +224,9 @@ public class Board : MonoBehaviour
                         if (upDot != null && upDot.color == currentDot.color &&
                             downDot != null && downDot.color == currentDot.color)
                         {
-                            matchedDots.AddRange(new Dot[] {currentDot, upDot, downDot});
+                            matchedDots.Add(currentDot);
+                            matchedDots.Add(upDot);
+                            matchedDots.Add(downDot);
                         }
                     }
                 }
@@ -255,6 +255,8 @@ public class Board : MonoBehaviour
         int nullCount = 0;
         for (int i = 0; i < width; i++)
         {
+            Vector2Int tempPosition;
+
             // 있는 dots들 떨어트리기
             for (int j = 0; j < height; j++)
             {
@@ -264,7 +266,8 @@ public class Board : MonoBehaviour
                 }
                 else if (nullCount > 0)
                 {
-                    DotMoveTo(allDots[i, j], i, j - nullCount);
+                    tempPosition = new Vector2Int(i, j - nullCount);
+                    DotMoveTo(allDots[i, j], tempPosition);
                     allDots[i, j] = null;
                 }
             }
@@ -272,11 +275,12 @@ public class Board : MonoBehaviour
             // 새 dots 생성해서 떨어트리기
             for (int n = 0; n < nullCount; n++)
             {
-                Vector2 tempPosition = new Vector2(i, height + n);
+                tempPosition = new Vector2Int(i, height + n);
                 GameObject piece = GetDotFromPool().gameObject;
-                piece.transform.position = tempPosition;
+                piece.transform.position = (Vector2)tempPosition;
                 allDots[i, height - nullCount + n] = piece.GetComponent<Dot>();
-                DotMoveTo(allDots[i, height - nullCount + n], i, height - nullCount + n);
+                tempPosition = new Vector2Int(i, height - nullCount + n);
+                DotMoveTo(allDots[i, height - nullCount + n], tempPosition);
             }
             nullCount = 0;
         }
@@ -312,7 +316,7 @@ public class Board : MonoBehaviour
         if (Mathf.Abs(distanceX) > swapResist || Mathf.Abs(distanceY) > swapResist)
         {
             // Calculate Angle
-            swapAngle = Mathf.Atan2(distanceY, distanceX) * 180 / Mathf.PI;
+            float swapAngle = Mathf.Atan2(distanceY, distanceX) * 180 / Mathf.PI;
             
             // Swap Pieces
             currentDot = dot;
@@ -321,13 +325,13 @@ public class Board : MonoBehaviour
             {
                 otherDot = allDots[newPosition.x, newPosition.y];
                 previousPosition = dot.position;
-                DotMoveTo(currentDot, newPosition.x, newPosition.y);
-                DotMoveTo(otherDot, previousPosition.x, previousPosition.y);
-            }
+                DotMoveTo(currentDot, newPosition);
+                DotMoveTo(otherDot, previousPosition);
 
-            // 매치 시작 -> 아니면 되돌아가기
-            StartCoroutine(ProcessMatchesCo());
-            StartCoroutine(DotSwapCo());
+                // 매치 시작 -> 아니면 되돌아가기
+                StartCoroutine(ProcessMatchesCo());
+                StartCoroutine(DotSwapCo());
+            }
         }
     }
 
@@ -364,8 +368,8 @@ public class Board : MonoBehaviour
             otherDot && otherDot.isActiveAndEnabled)
         {
             currentState = GameState.wait;
-            DotMoveTo(otherDot.GetComponent<Dot>(), currentDot.position.x, currentDot.position.y);
-            DotMoveTo(currentDot, previousPosition.x, previousPosition.y);
+            DotMoveTo(otherDot.GetComponent<Dot>(), currentDot.position);
+            DotMoveTo(currentDot, previousPosition);
 
             yield return new WaitForSeconds(swapDuration); // wait animation
             currentState = GameState.touch;
@@ -375,30 +379,23 @@ public class Board : MonoBehaviour
         otherDot = null;
     }
 
-    public void DotMoveTo(Dot dot, int targetCol, int targetRow) 
+    public void DotMoveTo(Dot dot, Vector2Int targetPosition) 
     {
-        dot.position.x = targetCol;
-        dot.position.y = targetRow;
-
-        Vector2 targetPosition = (Vector2)dot.position;
-        dot.transform.DOMove(targetPosition, swapDuration);
-        allDots[targetCol, targetRow] = dot;
+        dot.position = targetPosition;
+        dot.transform.DOMove((Vector2)targetPosition, swapDuration);
+        allDots[targetPosition.x, targetPosition.y] = dot;
     }
 
     // 매치할 수 있는게 있는가? = 게임 진행이 가능한가?
     private bool CheckCanMatch()
     {
-        // 상하좌우
-        int[] dx = { 0, 0, -1, 1 };
-        int[] dy = { 1, -1, 0, 0 };
-
-        // Vector2Int[] directions = new Vector2Int[] // 상하 좌우
-        // {
-        //     new Vector2Int(0, 1), // 위쪽 방향
-        //     new Vector2Int(0, -1), // 아래쪽 방향
-        //     new Vector2Int(-1, 0), // 왼쪽 방향
-        //     new Vector2Int(1, 0), // 오른쪽 방향
-        // };
+        Vector2Int[] directions = new Vector2Int[] // 상하 좌우
+        {
+            new Vector2Int(0, 1), // 위쪽 방향
+            new Vector2Int(0, -1), // 아래쪽 방향
+            new Vector2Int(-1, 0), // 왼쪽 방향
+            new Vector2Int(1, 0), // 오른쪽 방향
+        };
 
         for (int i = 0; i < width; i++)
         {
@@ -410,33 +407,33 @@ public class Board : MonoBehaviour
                 if(currentDot == null) continue;
                 for (int d = 0; d < 4; d++)
                 {
-                    if (0 <= i + dx[d] && i + dx[d] <= width - 1
-                        && 0 <= j + dy[d] && j + dy[d] <= height - 1)
+                    if (0 <= i + directions[d].x && i + directions[d].x <= width - 1
+                        && 0 <= j + directions[d].y && j + directions[d].y <= height - 1)
                     {
                         // 연달아 같은 색이 있는 경우
-                        Dot checkDot = allDots[i + dx[d], j + dy[d]];
+                        Dot checkDot = allDots[i + directions[d].x, j + directions[d].y];
                         if (checkDot == null || checkDot.color != color) continue;
 
-                        if (CheckSameColor(i + (dx[d] == 0 ? 1 : 2 * dx[d]), j + (dy[d] == 0 ? 1 : 2 * dy[d]), color)) return true;
+                        if (CheckSameColor(i + (directions[d].x == 0 ? 1 : 2 * directions[d].x), j + (directions[d].y == 0 ? 1 : 2 * directions[d].y), color)) return true;
                         
-                        if (CheckSameColor(i + (dx[d] == 0 ? -1 : 2 * dx[d]), j + (dy[d] == 0 ? -1 : 2 * dy[d]), color)) return true;
+                        if (CheckSameColor(i + (directions[d].x == 0 ? -1 : 2 * directions[d].x), j + (directions[d].y == 0 ? -1 : 2 * directions[d].y), color)) return true;
                         
-                        if (CheckSameColor(i + 3 * dx[d], j + 3 * dy[d], color)) return true;
+                        if (CheckSameColor(i + 3 * directions[d].x, j + 3 * directions[d].y, color)) return true;
                     }
                 }
 
                 for (int d = 0; d < 4; d++)
                 {
-                    if (0 <= i + 2 * dx[d] && i + 2 * dx[d] <= width - 1
-                        && 0 <= j + 2 * dy[d] && j + 2 * dy[d] <= height - 1)
+                    if (0 <= i + 2 * directions[d].x && i + 2 * directions[d].x <= width - 1
+                        && 0 <= j + 2 * directions[d].y && j + 2 * directions[d].y <= height - 1)
                     {
                         // 한 칸 띄우고 같은 색이 있는 경우
-                        Dot checkDot = allDots[i + 2 * dx[d], j + 2 * dy[d]];
+                        Dot checkDot = allDots[i + 2 * directions[d].x, j + 2 * directions[d].y];
                         if (checkDot == null || checkDot.color != color) continue;
                         
-                        if (CheckSameColor(i + (dx[d] == 0 ? 1 : dx[d]), j + (dy[d] == 0 ? 1 : dy[d]), color)) return true;
+                        if (CheckSameColor(i + (directions[d].x == 0 ? 1 : directions[d].x), j + (directions[d].y == 0 ? 1 : directions[d].y), color)) return true;
 
-                        if (CheckSameColor(i + (dx[d] == 0 ? -1 : dx[d]), j + (dy[d] == 0 ? -1 : dy[d]), color)) return true;
+                        if (CheckSameColor(i + (directions[d].x == 0 ? -1 : directions[d].x), j + (directions[d].y == 0 ? -1 : directions[d].y), color)) return true;
                     }
                 }
             }
