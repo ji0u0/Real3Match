@@ -1,7 +1,6 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using UnityEditor;
 using UnityEngine;
 using DG.Tweening;
 using Random = UnityEngine.Random;
@@ -58,7 +57,6 @@ public class Board : MonoBehaviour
         for (int i = 0; i < assetAddresses.Count; i++)
         {
             string address = assetAddresses[i];
-
             DotColor color = (DotColor)i;
             GameObject colorParent = new GameObject(color.ToString() + " Pool");
             _colorParents.Add(colorParent);
@@ -85,17 +83,12 @@ public class Board : MonoBehaviour
     {
         // Dots 생성
         _allDots = new Dot[width, height];
-        for (int i = 0; i < width; i++)
+        foreach(var pt in ForAllDots())
         {
-            for (int j = 0; j < height; j++)
-            {
-                Vector2 tempPosition = new Vector2(i, j);
-                GameObject piece = GetDotFromPool().gameObject;
-                piece.transform.position = tempPosition;
-                _allDots[i, j] = piece.GetComponent<Dot>();
-                _allDots[i, j].position.x = i;
-                _allDots[i, j].position.y = j;
-            }
+            GameObject piece = GetDotFromPool().gameObject;
+            piece.transform.position = (Vector2)pt;
+            SetDotFromBoard(pt, piece.GetComponent<Dot>());
+            GetDotFromBoard(pt).position = pt;
         }
 
         // 시작하자 마자 Match된 경우, Match할 게 없는 경우를 배제한다
@@ -112,31 +105,29 @@ public class Board : MonoBehaviour
                 {
                     // match된 dot 삭제
                     Vector2Int tempPosition = dot.position;
-                    objectPoolManager.ReturnToPool(_allDots[tempPosition.x, tempPosition.y], _allDots[tempPosition.x, tempPosition.y].address);
-                    _allDots[tempPosition.x, tempPosition.y] = null;
+                    objectPoolManager.ReturnToPool(GetDotFromBoard(tempPosition), GetDotFromBoard(tempPosition).address);
+                    SetDotFromBoard(tempPosition, null);
 
                     // 삭제된 dot 다시 생성
                     GameObject piece = GetDotFromPool().gameObject;
                     piece.transform.position = (Vector2)tempPosition;
-                    _allDots[tempPosition.x, tempPosition.y] = piece.GetComponent<Dot>();
-                    _allDots[tempPosition.x, tempPosition.y].position = tempPosition;
+                    SetDotFromBoard(tempPosition, piece.GetComponent<Dot>());
+                    GetDotFromBoard(tempPosition).position = tempPosition;
                 }   
             }
             else if (!CheckCanMatch()) // match할 수 있는 dot이 없다면 전체 초기화한다
             {
-                for (int i = 0; i < width; i++)
+                foreach(var pt in ForAllDots())
                 {
-                    for (int j = 0; j < height; j++)
-                    {
-                        objectPoolManager.ReturnToPool(_allDots[i, j], _allDots[i, j].address);
-                        _allDots[i, j] = null;
+                    // 보드 초기화
+                    objectPoolManager.ReturnToPool(GetDotFromBoard(pt), GetDotFromBoard(pt).address);
+                    SetDotFromBoard(pt, null);
 
-                        Vector2Int tempPosition = new Vector2Int(i, j);
-                        GameObject piece = GetDotFromPool().gameObject;
-                        piece.transform.position = (Vector2)tempPosition;
-                        _allDots[i, j] = piece.GetComponent<Dot>();
-                        _allDots[i, j].position = tempPosition;
-                    }
+                    // 다시 채우기
+                    GameObject piece = GetDotFromPool().gameObject;
+                    piece.transform.position = (Vector2)pt;
+                    SetDotFromBoard(pt, piece.GetComponent<Dot>());
+                    GetDotFromBoard(pt).position = pt;
                 }
             }
             else // 조건을 만족하면 반복을 멈추고 게임을 시작한다
@@ -202,14 +193,14 @@ public class Board : MonoBehaviour
 
         foreach(var pt in ForAllDots())
         {
-            Dot currentDot = GetDot(pt);
+            Dot currentDot = GetDotFromBoard(pt);
             DotColor currentColor = currentDot.color;
             if (currentDot != null)
             {
                 if (pt.x > 0 && pt.x < width - 1) // 가로 체크
                 {
-                    Dot leftDot = GetDot(pt + leftDir);
-                    Dot rightDot = GetDot(pt + rightDir);
+                    Dot leftDot = GetDotFromBoard(pt + leftDir);
+                    Dot rightDot = GetDotFromBoard(pt + rightDir);
 
                     if (leftDot != null && leftDot.color == currentColor &&
                         rightDot != null && rightDot.color == currentColor)
@@ -221,8 +212,8 @@ public class Board : MonoBehaviour
                 }
                 if (pt.y > 0 && pt.y < height - 1) // 세로 체크
                 {
-                    Dot upDot = GetDot(pt + upDir);
-                    Dot downDot = GetDot(pt + downDir);
+                    Dot upDot = GetDotFromBoard(pt + upDir);
+                    Dot downDot = GetDotFromBoard(pt + downDir);
 
                     if (upDot != null && upDot.color == currentDot.color &&
                         downDot != null && downDot.color == currentDot.color)
@@ -240,6 +231,13 @@ public class Board : MonoBehaviour
     // 점수를 업데이트 한다
     private void UpdateScore(HashSet<Dot> matchedDots)
     {
+        scoreManager.AddScore(CalculateScore(matchedDots));
+        scoreManager.UpdateScoreText();
+    }
+
+    private int CalculateScore(HashSet<Dot> matchedDots)
+    {
+        int score = 0;
         int[,] board = new int[width, height];
 
         foreach (Dot matchedDot in matchedDots)
@@ -247,40 +245,27 @@ public class Board : MonoBehaviour
             board[matchedDot.position.x, matchedDot.position.y] = 1;
         }
 
-        scoreManager.AddScore(CalculateScore(board, true));
-        scoreManager.AddScore(CalculateScore(board, false));
-        scoreManager.UpdateScoreText();
-    }
-
-    private int CalculateScore(int[,] board, bool isHorizontal)
-    {
-        int score = 0;
-        int[] scoreByMatchCount = scoreManager.scoreByMatchCount;
-
-        int outerLimit = isHorizontal ? height : width;
-        int innerLimit = isHorizontal ? width : height;
-        for (int outer = 0; outer < outerLimit; outer++)
+        for (int i = 0; i < 2; i++)
         {
-            int serialDotCount = 0;
-            for (int inner = 0; inner < innerLimit; inner++)
+            int outerLimit = (i == 0) ? height : width;
+            int innerLimit = (i == 0) ? width : height;
+            for (int outer = 0; outer < outerLimit; outer++)
             {
-                int cell = isHorizontal ? board[inner, outer] : board[outer, inner];
-                if (cell == 1)
+                int serialDotCount = 0;
+                for (int inner = 0; inner < innerLimit; inner++)
                 {
-                    serialDotCount++;
-                }
-                else
-                {
-                    if (3 <= serialDotCount && serialDotCount <= 5)
+                    int pt = (i == 0) ? board[inner, outer] : board[outer, inner];
+                    if (pt == 1)
                     {
-                        score += scoreByMatchCount[serialDotCount - 3];
+                        serialDotCount++;
                     }
-                    serialDotCount = 0;
+                    else
+                    {
+                        score += scoreManager.returnScoreByMatchCount(serialDotCount);
+                        serialDotCount = 0;
+                    }
                 }
-            }
-            if (3 <= serialDotCount && serialDotCount <= 5)
-            {
-                score += scoreByMatchCount[serialDotCount - 3];
+                score += scoreManager.returnScoreByMatchCount(serialDotCount);
             }
         }
         return score;
@@ -291,7 +276,7 @@ public class Board : MonoBehaviour
     {
         foreach (Dot dot in matchedDots)
         {
-            _allDots[dot.position.x, dot.position.y] = null;
+            SetDotFromBoard(dot.position, null);
             objectPoolManager.ReturnToPool(dot, dot.address);
         }
 
@@ -371,7 +356,7 @@ public class Board : MonoBehaviour
             Vector2Int newPosition = dot.position + JudgeDirection(swapAngle);
             if (0 <= newPosition.x && newPosition.x < width && 0 <= newPosition.y && newPosition.y < height)
             {
-                var otherDot = _allDots[newPosition.x, newPosition.y];
+                var otherDot = GetDotFromBoard(newPosition);
                 _previousPosition = dot.position;
                 DotMoveTo(currentDot, newPosition);
                 DotMoveTo(otherDot, _previousPosition);
@@ -425,7 +410,7 @@ public class Board : MonoBehaviour
     {
         dot.position = targetPosition;
         dot.transform.DOMove((Vector2)targetPosition, swapDuration);
-        _allDots[targetPosition.x, targetPosition.y] = dot;
+        SetDotFromBoard(targetPosition, dot);
     }
 
     // 매치할 수 있는게 있는가? = 게임 진행이 가능한가?
@@ -441,7 +426,7 @@ public class Board : MonoBehaviour
 
         foreach(var currentPt in ForAllDots())
         {
-            Dot currentDot = GetDot(currentPt);
+            Dot currentDot = GetDotFromBoard(currentPt);
             DotColor color = currentDot.color;
 
             if (currentDot == null) continue;
@@ -482,26 +467,8 @@ public class Board : MonoBehaviour
     private Vector2Int GetDiagonalDirection(Vector2Int direction, int dist, int diagonalDir)
     {
         return new Vector2Int(
-            (direction.x == 0 ? diagonalDir : dist * direction.x), 
-            (direction.y == 0 ? diagonalDir : dist * direction.y));
-    }
-
-    private IEnumerable<Vector2Int> ForAllDots()
-    {
-        for (int i = 0; i < width; i++)
-        {
-            for (int j = 0; j < height; j++)
-            {
-                yield return new Vector2Int(i, j);
-            }
-        }
-    }
-
-    private Dot GetDot(in Vector2Int currentPt)
-    {
-        if (!IsValidPosition(currentPt))
-            return null;
-        return _allDots[currentPt.x, currentPt.y];
+            direction.x == 0 ? diagonalDir : dist * direction.x, 
+            direction.y == 0 ? diagonalDir : dist * direction.y);
     }
 
     private bool IsValidPosition(in Vector2Int checkPoint)
@@ -519,5 +486,30 @@ public class Board : MonoBehaviour
         }
         
         return false;
+    }
+
+    private IEnumerable<Vector2Int> ForAllDots()
+    {
+        for (int i = 0; i < width; i++)
+        {
+            for (int j = 0; j < height; j++)
+            {
+                yield return new Vector2Int(i, j);
+            }
+        }
+    }
+
+    private Dot GetDotFromBoard(in Vector2Int currentPt)
+    {
+        if (!IsValidPosition(currentPt))
+            return null; 
+        return _allDots[currentPt.x, currentPt.y];
+    }
+
+    private void SetDotFromBoard(in Vector2Int newPt, Dot newDot)
+    {
+        if (!IsValidPosition(newPt))
+            return;
+        _allDots[newPt.x, newPt.y] = newDot;
     }
 }

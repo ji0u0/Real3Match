@@ -5,16 +5,16 @@ using UnityEngine.UI;
 
 public class Score : MonoBehaviour
 {
-    [Tooltip("점수를 표시할 UI Text 객체")]
+    [Header("UI")]
     public Text scoreText;
 
-    [Tooltip("3, 4, 5개 매치에 따른 추가 점수")]
-    public int[] scoreByMatchCount = {3, 6, 9};
-    
+    [Header("Score")]
+    [SerializeField] private int _3MatchScore = 3;
+    [SerializeField] private int _4MatchScore = 6;
+    [SerializeField] private int _5MatchScore = 9;
+
     private int _score = 0;
 
-
-    // Start is called before the first frame update
     void Start()
     {
         UpdateScoreText();
@@ -28,5 +28,22 @@ public class Score : MonoBehaviour
     public void AddScore(int additionalScore)
     {
         _score += additionalScore;
+    }
+
+    public int returnScoreByMatchCount(int serialDotCount)
+    {
+        if (serialDotCount == 3)
+        {
+            return _3MatchScore;
+        }
+        else if (serialDotCount == 4)
+        {
+            return _4MatchScore;
+        }
+        else if (serialDotCount == 5)
+        {
+            return _5MatchScore;
+        }
+        return 0;
     }
 }

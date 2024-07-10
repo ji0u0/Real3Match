@@ -36,7 +36,12 @@ public class ObjectPool : MonoBehaviour
 
     public T GetObject<T>(string address) where T : MonoBehaviour
     {
-        if (_pool.ContainsKey(address) && _pool[address].Count > 0)
+        if (!_pool.ContainsKey(address))
+        {
+            _pool[address] = new Queue<MonoBehaviour>();
+        }
+
+        if (_pool[address].Count > 0)
         {
             T pooledInstance = _pool[address].Dequeue() as T;
             pooledInstance.gameObject.SetActive(true);
@@ -68,7 +73,7 @@ public class ObjectPool : MonoBehaviour
             objectToReturn.gameObject.SetActive(false);
             if (!_pool.ContainsKey(address))
             {
-                Debug.LogError("Address error");
+                _pool[address] = new Queue<MonoBehaviour>();
             }
             _pool[address].Enqueue(objectToReturn);
         }
