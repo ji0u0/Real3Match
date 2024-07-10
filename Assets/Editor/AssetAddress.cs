@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 
-public class AssetAddress : MonoBehaviour
+public class AssetAddress : Editor
 {
     [MenuItem("Tools/Update Asset Addresses")]
     private static void UpdateAssetAddresses()
@@ -15,6 +15,7 @@ public class AssetAddress : MonoBehaviour
             return;
         }
 
+        board.assetAddresses = new List<string>();
         string[] guids = AssetDatabase.FindAssets("t:Prefab", new[] {board.searchFolderAddress});
 
         foreach (string guid in guids)

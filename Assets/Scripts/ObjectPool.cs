@@ -5,15 +5,42 @@ using UnityEngine;
 
 public class ObjectPool : MonoBehaviour
 {
-    public Dictionary<string, Queue<MonoBehaviour>> pool = new Dictionary<string, Queue<MonoBehaviour>>(); // 프리팹 주소 & 풀 쌍
+    public Dictionary<string, Queue<MonoBehaviour>> pool = new Dictionary<string, Queue<MonoBehaviour>>(); // 프리팹 주소 & 오브젝트
+
+    public void InitPool (string address, int initialSize, GameObject transformParent)
+    {
+        if (pool.ContainsKey(address))
+        {
+            Debug.LogWarning("Pool already initialized at " + address);
+            return;
+        }
+
+        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(address);
+        if (prefab == null)
+        {
+            Debug.LogError("Prefab not found at " + address);
+            return;
+        }
+
+        pool[address] = new Queue<MonoBehaviour>();
+
+        for (int i = 0; i < initialSize; i++)
+        {
+            GameObject instantiatedObject = Instantiate(prefab);
+            instantiatedObject.SetActive(false);
+            instantiatedObject.transform.SetParent(transformParent.transform);
+            MonoBehaviour pooledInstance = instantiatedObject.GetComponent<MonoBehaviour>();
+            pool[address].Enqueue(pooledInstance);
+        }
+    }
 
     public T GetObject<T>(string address) where T : MonoBehaviour
     {
         if (pool.ContainsKey(address) && pool[address].Count > 0)
         {
-            T piece = pool[address].Dequeue() as T;
-            piece.gameObject.SetActive(true);
-            return piece;
+            T pooledInstance = pool[address].Dequeue() as T;
+            pooledInstance.gameObject.SetActive(true);
+            return pooledInstance;
         }
         else
         {
@@ -22,9 +49,9 @@ public class ObjectPool : MonoBehaviour
             if (prefab != null)
             {
                 GameObject instantiatedObject = Instantiate(prefab);
-                T piece = instantiatedObject.GetComponent<T>();
-                piece.gameObject.SetActive(true);
-                return piece;
+                instantiatedObject.SetActive(true);
+                T pooledInstance = instantiatedObject.GetComponent<T>();
+                return pooledInstance;
             }
             else
             {
@@ -34,16 +61,16 @@ public class ObjectPool : MonoBehaviour
         }
     }
 
-    public void ReturnToPool<T>(T obj, string address) where T : MonoBehaviour
+    public void ReturnToPool<T>(T objectToReturn, string address) where T : MonoBehaviour
     {
-        if (obj != null)
+        if (objectToReturn != null)
         {
-            obj.gameObject.SetActive(false);
+            objectToReturn.gameObject.SetActive(false);
             if (!pool.ContainsKey(address))
             {
                 Debug.LogError("Address error");
             }
-            pool[address].Enqueue(obj);
+            pool[address].Enqueue(objectToReturn);
         }
         else
         {

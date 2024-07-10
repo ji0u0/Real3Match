@@ -601,7 +601,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   width: 7
   height: 10
-  poolSize: 10
+  initialPoolSize: 10
   searchFolderAddress: Assets/Prefabs/Dots
   assetAddresses:
   - Assets/Prefabs/Dots/BlueDot.prefab
