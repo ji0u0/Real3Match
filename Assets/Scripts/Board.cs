@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 using DG.Tweening;
+using System;
 
 public enum GameState
 {
@@ -69,7 +70,7 @@ public class Board : MonoBehaviour
 
     private Dot GetDotFromPool()
     {
-        int randomIndex = Random.Range(0, assetAddresses.Count);
+        int randomIndex = UnityEngine.Random.Range(0, assetAddresses.Count);
         string address = assetAddresses[randomIndex];
 
         Dot piece = objectPoolManager.GetObject<Dot>(address);
@@ -158,6 +159,9 @@ public class Board : MonoBehaviour
         HashSet<Dot> matchedDots = FindAllMatches();
         while (matchedDots.Count != 0)
         {
+            // 점수를 업데이트한다
+            UpdateScore(matchedDots);
+
             // Match된 Dot이 있다면 부순다
             DestroyMatches(matchedDots);
             yield return new WaitForSeconds(termDuration);
@@ -228,17 +232,63 @@ public class Board : MonoBehaviour
         return _matchedDots;
     }
 
-    // 부순다 : 매치된 Dot을 부순다 + 스코어 업뎃
+    // 점수를 업데이트 한다
+    private void UpdateScore(HashSet<Dot> matchedDots)
+    {
+        int[,] board = new int[width, height];
+
+        foreach (Dot matchedDot in matchedDots)
+        {
+            board[matchedDot.position.x, matchedDot.position.y] = 1;
+        }
+
+        scoreManager.score += CalculateScore(board, true);
+        scoreManager.score += CalculateScore(board, false);
+        scoreManager.SetScore();
+    }
+
+    private int CalculateScore(int[,] board, bool isHorizontal)
+    {
+        int score = 0;
+        int[] scoreByMatchCount = scoreManager.scoreByMatchCount;
+
+        int outerLimit = isHorizontal ? height : width;
+        int innerLimit = isHorizontal ? width : height;
+        for (int outer = 0; outer < outerLimit; outer++)
+        {
+            int serialDotCount = 0;
+            for (int inner = 0; inner < innerLimit; inner++)
+            {
+                int cell = isHorizontal ? board[inner, outer] : board[outer, inner];
+                if (cell == 1)
+                {
+                    serialDotCount++;
+                }
+                else
+                {
+                    if (3 <= serialDotCount && serialDotCount <= 5)
+                    {
+                        score += scoreByMatchCount[serialDotCount - 3];
+                    }
+                    serialDotCount = 0;
+                }
+            }
+            if (3 <= serialDotCount && serialDotCount <= 5)
+            {
+                score += scoreByMatchCount[serialDotCount - 3];
+            }
+        }
+        return score;
+    }
+
+    // 부순다 : 매치된 Dot을 부순다
     private void DestroyMatches(HashSet<Dot> matchedDots)
     {
         foreach (Dot dot in matchedDots)
         {
             _allDots[dot.position.x, dot.position.y] = null;
             objectPoolManager.ReturnToPool(dot, dot.address);
-            scoreManager.score++;
         }
-
-        scoreManager.SetScore();
     }
 
     // 채운다 : Dot을 떨어트려 채운다
