@@ -154,8 +154,10 @@ public class Board : MonoBehaviour
         _currentState = GameState.wait;
         yield return new WaitForSeconds(swapDuration); // wait animation
 
-        // 찾는다 -> 매치된 Dot이 있는가?
+        // match를 찾는다
         HashSet<Dot> matchedDots = FindAllMatches();
+        
+        // match된 dot이 없다면 되돌린다
         if (matchedDots.Count == 0)
         {
             yield return DotSwapCo(currentDot, otherDot);
@@ -164,6 +166,8 @@ public class Board : MonoBehaviour
 
         while (matchedDots.Count != 0)
         {
+            // 점수를 업데이트한다
+            UpdateScore(matchedDots);
             // Match된 Dot이 있다면 부순다
             yield return DestroyMatches(matchedDots);
             // 부수고 나면 리필한다
@@ -233,6 +237,55 @@ public class Board : MonoBehaviour
         return _matchedDots;
     }
 
+    // 점수를 업데이트 한다
+    private void UpdateScore(HashSet<Dot> matchedDots)
+    {
+        int[,] board = new int[width, height];
+
+        foreach (Dot matchedDot in matchedDots)
+        {
+            board[matchedDot.position.x, matchedDot.position.y] = 1;
+        }
+
+        scoreManager.AddScore(CalculateScore(board, true));
+        scoreManager.AddScore(CalculateScore(board, false));
+        scoreManager.UpdateScoreText();
+    }
+
+    private int CalculateScore(int[,] board, bool isHorizontal)
+    {
+        int score = 0;
+        int[] scoreByMatchCount = scoreManager.scoreByMatchCount;
+
+        int outerLimit = isHorizontal ? height : width;
+        int innerLimit = isHorizontal ? width : height;
+        for (int outer = 0; outer < outerLimit; outer++)
+        {
+            int serialDotCount = 0;
+            for (int inner = 0; inner < innerLimit; inner++)
+            {
+                int cell = isHorizontal ? board[inner, outer] : board[outer, inner];
+                if (cell == 1)
+                {
+                    serialDotCount++;
+                }
+                else
+                {
+                    if (3 <= serialDotCount && serialDotCount <= 5)
+                    {
+                        score += scoreByMatchCount[serialDotCount - 3];
+                    }
+                    serialDotCount = 0;
+                }
+            }
+            if (3 <= serialDotCount && serialDotCount <= 5)
+            {
+                score += scoreByMatchCount[serialDotCount - 3];
+            }
+        }
+        return score;
+    }
+
     // 부순다 : 매치된 Dot을 부순다 + 스코어 업뎃
     private IEnumerator DestroyMatches(HashSet<Dot> matchedDots)
     {
@@ -240,10 +293,8 @@ public class Board : MonoBehaviour
         {
             _allDots[dot.position.x, dot.position.y] = null;
             objectPoolManager.ReturnToPool(dot, dot.address);
-            scoreManager.AddScore();
         }
 
-        scoreManager.UpdateScoreText();
         yield return new WaitForSeconds(termDuration);
     }
 
