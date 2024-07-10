@@ -6,18 +6,24 @@ using UnityEngine.UI;
 public class Score : MonoBehaviour
 {
     // Score
-    public int score = 0;
     public Text scoreText;
+    
+    private int _score = 0;
+
 
     // Start is called before the first frame update
     void Start()
     {
-        SetScore();
+        UpdateScoreText();
     }
 
-    public void SetScore()
+    public void UpdateScoreText()
     {
-        scoreText.text = score.ToString();
+        scoreText.text = _score.ToString();
     }
 
+    public void AddScore()
+    {
+        _score++;
+    }
 }

@@ -1,8 +1,10 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 using DG.Tweening;
+using Random = UnityEngine.Random;
 
 public enum GameState
 {
@@ -36,9 +38,7 @@ public class Board : MonoBehaviour
     public float swapDuration = .3f;
     public float termDuration = .1f;
     public float swapResist = 1f;
-    private Dot _currentDot;
-    private Dot _otherDot;
-
+    
     [Header("Managers")]
     public Score scoreManager;
     public ObjectPool objectPoolManager;
@@ -148,7 +148,7 @@ public class Board : MonoBehaviour
     }
 
     // Match 프로세스를 시작
-    private IEnumerator ProcessMatchesCo()
+    private IEnumerator ProcessMatchesCo(Dot currentDot, Dot otherDot)
     {
         // 매치가 시작되면 터치가 불가능하게 만든다
         _currentState = GameState.wait;
@@ -156,15 +156,18 @@ public class Board : MonoBehaviour
 
         // 찾는다 -> 매치된 Dot이 있는가?
         HashSet<Dot> matchedDots = FindAllMatches();
+        if (matchedDots.Count == 0)
+        {
+            yield return DotSwapCo(currentDot, otherDot);
+            yield break;
+        }
+
         while (matchedDots.Count != 0)
         {
             // Match된 Dot이 있다면 부순다
-            DestroyMatches(matchedDots);
-            yield return new WaitForSeconds(termDuration);
-
+            yield return DestroyMatches(matchedDots);
             // 부수고 나면 리필한다
-            StartCoroutine(RefillRowCo());
-            yield return new WaitForSeconds(swapDuration + termDuration);
+            yield return RefillRowCo();
 
             // 다시 검사
             matchedDots = FindAllMatches();
@@ -186,41 +189,43 @@ public class Board : MonoBehaviour
     // 찾는다 : 매치된 dot을 저장해 반환한다
     private HashSet<Dot> FindAllMatches()
     {
+        var leftDir = new Vector2Int(-1, 0);
+        var rightDir = new Vector2Int(1, 0);
+        var upDir = new Vector2Int(0, 1);
+        var downDir = new Vector2Int(0, -1);
+        
         _matchedDots.Clear();
 
-        for (int i = 0; i < width; i ++)
+        foreach(var pt in ForAllDots())
         {
-            for (int j = 0; j < height; j ++)
+            Dot currentDot = GetDot(pt);
+            DotColor currentColor = currentDot.color;
+            if (currentDot != null)
             {
-                Dot currentDot = _allDots[i, j];
-                DotColor currentColor = currentDot.color;
-                if(currentDot != null)
+                if (pt.x > 0 && pt.x < width - 1) // 가로 체크
                 {
-                    if (i > 0 && i < width - 1) // 가로 체크
-                    {
-                        Dot leftDot = _allDots[i - 1, j];
-                        Dot rightDot = _allDots[i + 1, j];
+                    Dot leftDot = GetDot(pt + leftDir);
+                    Dot rightDot = GetDot(pt + rightDir);
 
-                        if (leftDot != null && leftDot.color == currentColor &&
-                            rightDot != null && rightDot.color == currentColor)
-                        {
-                            _matchedDots.Add(currentDot);
-                            _matchedDots.Add(leftDot);
-                            _matchedDots.Add(rightDot);
-                        }
+                    if (leftDot != null && leftDot.color == currentColor &&
+                        rightDot != null && rightDot.color == currentColor)
+                    {
+                        _matchedDots.Add(currentDot);
+                        _matchedDots.Add(leftDot);
+                        _matchedDots.Add(rightDot);
                     }
-                    if (j > 0 && j < height - 1) // 세로 체크
-                    {
-                        Dot upDot = _allDots[i, j + 1];
-                        Dot downDot = _allDots[i, j - 1];
+                }
+                if (pt.y > 0 && pt.y < height - 1) // 세로 체크
+                {
+                    Dot upDot = GetDot(pt + upDir);
+                    Dot downDot = GetDot(pt + downDir);
 
-                        if (upDot != null && upDot.color == currentDot.color &&
-                            downDot != null && downDot.color == currentDot.color)
-                        {
-                            _matchedDots.Add(currentDot);
-                            _matchedDots.Add(upDot);
-                            _matchedDots.Add(downDot);
-                        }
+                    if (upDot != null && upDot.color == currentDot.color &&
+                        downDot != null && downDot.color == currentDot.color)
+                    {
+                        _matchedDots.Add(currentDot);
+                        _matchedDots.Add(upDot);
+                        _matchedDots.Add(downDot);
                     }
                 }
             }
@@ -229,16 +234,17 @@ public class Board : MonoBehaviour
     }
 
     // 부순다 : 매치된 Dot을 부순다 + 스코어 업뎃
-    private void DestroyMatches(HashSet<Dot> matchedDots)
+    private IEnumerator DestroyMatches(HashSet<Dot> matchedDots)
     {
         foreach (Dot dot in matchedDots)
         {
             _allDots[dot.position.x, dot.position.y] = null;
             objectPoolManager.ReturnToPool(dot, dot.address);
-            scoreManager.score++;
+            scoreManager.AddScore();
         }
 
-        scoreManager.SetScore();
+        scoreManager.UpdateScoreText();
+        yield return new WaitForSeconds(termDuration);
     }
 
     // 채운다 : Dot을 떨어트려 채운다
@@ -310,18 +316,17 @@ public class Board : MonoBehaviour
             float swapAngle = Mathf.Atan2(distanceY, distanceX) * 180 / Mathf.PI;
             
             // Swap Pieces
-            _currentDot = dot;
+            var currentDot = dot;
             Vector2Int newPosition = dot.position + JudgeDirection(swapAngle);
             if (0 <= newPosition.x && newPosition.x < width && 0 <= newPosition.y && newPosition.y < height)
             {
-                _otherDot = _allDots[newPosition.x, newPosition.y];
+                var otherDot = _allDots[newPosition.x, newPosition.y];
                 _previousPosition = dot.position;
-                DotMoveTo(_currentDot, newPosition);
-                DotMoveTo(_otherDot, _previousPosition);
+                DotMoveTo(currentDot, newPosition);
+                DotMoveTo(otherDot, _previousPosition);
 
                 // 매치 시작 -> 아니면 되돌아가기
-                StartCoroutine(ProcessMatchesCo());
-                StartCoroutine(DotSwapCo());
+                StartCoroutine(ProcessMatchesCo(currentDot, otherDot));
             }
         }
     }
@@ -351,23 +356,18 @@ public class Board : MonoBehaviour
     }
 
     // 매치된 dot이 없다면 되돌린다
-    private IEnumerator DotSwapCo()
+    private IEnumerator DotSwapCo(Dot currentDot, Dot otherDot)
     {
-        yield return new WaitForSeconds(swapDuration); // wait animation
-
-        if (_currentDot && _currentDot.isActiveAndEnabled &&
-            _otherDot && _otherDot.isActiveAndEnabled)
+        if (currentDot && currentDot.isActiveAndEnabled &&
+            otherDot && otherDot.isActiveAndEnabled)
         {
             _currentState = GameState.wait;
-            DotMoveTo(_otherDot.GetComponent<Dot>(), _currentDot.position);
-            DotMoveTo(_currentDot, _previousPosition);
+            DotMoveTo(otherDot.GetComponent<Dot>(), currentDot.position);
+            DotMoveTo(currentDot, _previousPosition);
 
             yield return new WaitForSeconds(swapDuration); // wait animation
             _currentState = GameState.touch;
         }
-
-        _currentDot = null;
-        _otherDot = null;
     }
 
     private void DotMoveTo(Dot dot, Vector2Int targetPosition) 
@@ -388,68 +388,82 @@ public class Board : MonoBehaviour
             new Vector2Int(1, 0), // 오른쪽 방향
         };
 
-        for (int i = 0; i < width; i++)
+        foreach(var currentPt in ForAllDots())
         {
-            for (int j = 0; j < height; j++)
+            Dot currentDot = GetDot(currentPt);
+            DotColor color = currentDot.color;
+
+            if (currentDot == null) continue;
+            foreach (var direction in directions)
             {
-                Dot currentDot = _allDots[i, j];
-                DotColor color = currentDot.color;
-
-                if(currentDot == null) continue;
-                foreach (var direction in directions)
+                // 연달아 같은 색이 있고 대각선 위,아래나 한칸 떨어져 있는 경우 체크
+                if (CheckSameColor(currentPt + direction, color))
                 {
-                    Vector2Int checkPoint = new Vector2Int(i + direction.x, j + direction.y);
-                    if (0 <= checkPoint.x && checkPoint.x <= width - 1 && 0 <= checkPoint.y && checkPoint.y <= height - 1)
-                    {
-                        // 연달아 같은 색이 있는 경우
-                        Dot checkDot = _allDots[checkPoint.x, checkPoint.y];
-                        if (checkDot != null && checkDot.color == color)
-                        {
-                            Vector2Int tempPoint = new Vector2Int(i + (direction.x == 0 ? 1 : 2 * direction.x),
-                                                                  j + (direction.y == 0 ? 1 : 2 * direction.y));
-                            if (CheckSameColor(tempPoint.x, tempPoint.y, color))
-                                return true;
+                    Vector2Int tempPoint = currentPt + GetDiagonalDirection(direction, 2, 1);
+                    if (CheckSameColor(tempPoint, color))
+                        return true;
 
-                            tempPoint = new Vector2Int(i + (direction.x == 0 ? -1 : 2 * direction.x),
-                                                       j + (direction.y == 0 ? -1 : 2 * direction.y));
-                            if (CheckSameColor(tempPoint.x, tempPoint.y, color))
-                                return true;
-                            
-                            tempPoint = new Vector2Int(i + 3 * direction.x, j + 3 * direction.y);
-                            if (CheckSameColor(tempPoint.x, tempPoint.y, color))
-                                return true;
-                        }
-                    }
+                    tempPoint = currentPt + GetDiagonalDirection(direction, 2, -1);
+                    if (CheckSameColor(tempPoint, color))
+                        return true;
                     
-                    checkPoint = new Vector2Int(i + 2 * direction.x, j + 2 * direction.y);
-                    if (0 <= checkPoint.x && checkPoint.x <= width - 1 && 0 <= checkPoint.y && checkPoint.y <= height - 1)
-                    {
-                        // 한 칸 띄우고 같은 색이 있는 경우
-                        Dot checkDot = _allDots[checkPoint.x, checkPoint.y];
-                        if (checkDot != null && checkDot.color == color)
-                        {
-                            Vector2Int tempPoint = new Vector2Int(i + (direction.x == 0 ? 1 : direction.x),
-                                                                  j + (direction.y == 0 ? 1 : direction.y));
-                            if (CheckSameColor(tempPoint.x, tempPoint.y, color))
-                                return true;
-                            
-                            tempPoint = new Vector2Int(i + (direction.x == 0 ? -1 : direction.x),
-                                                       j + (direction.y == 0 ? -1 : direction.y));
-                            if (CheckSameColor(tempPoint.x, tempPoint.y, color))
-                                return true;
-                        }
-                    }
+                    tempPoint = currentPt + direction * 3;
+                    if (CheckSameColor(tempPoint, color))
+                        return true;
+                }
+                
+                // 한칸 떨어져 같은 색이 있고 그 사이 위,아래에 같은 색이 있는 경우.
+                if (CheckSameColor(currentPt + 2 * direction, color))
+                {
+                    Vector2Int tempPoint = currentPt + GetDiagonalDirection(direction, 1, 1);
+                    if (CheckSameColor(tempPoint, color))
+                        return true;
+                    
+                    tempPoint = currentPt + GetDiagonalDirection(direction, 1, -1);
+                    if (CheckSameColor(tempPoint, color))
+                        return true;
                 }
             }
         }
         return false;
     }
 
-    private bool CheckSameColor(int x, int y, DotColor color)
+    private Vector2Int GetDiagonalDirection(Vector2Int direction, int dist, int diagonalDir)
     {
-        if (0 <= x && x <= width - 1 && 0 <= y && y <= height - 1)
+        return new Vector2Int(
+            (direction.x == 0 ? diagonalDir : dist * direction.x), 
+            (direction.y == 0 ? diagonalDir : dist * direction.y));
+    }
+
+    private IEnumerable<Vector2Int> ForAllDots()
+    {
+        for (int i = 0; i < width; i++)
         {
-            Dot tempDot = _allDots[x, y];
+            for (int j = 0; j < height; j++)
+            {
+                yield return new Vector2Int(i, j);
+            }
+        }
+    }
+
+    private Dot GetDot(in Vector2Int currentPt)
+    {
+        if (!IsValidPosition(currentPt))
+            return null;
+        return _allDots[currentPt.x, currentPt.y];
+    }
+
+    private bool IsValidPosition(in Vector2Int checkPoint)
+    {
+        return 0 <= checkPoint.x && checkPoint.x <= width - 1 &&
+               0 <= checkPoint.y && checkPoint.y <= height - 1;
+    }
+
+    private bool CheckSameColor(in Vector2Int pt, DotColor color)
+    {
+        if (IsValidPosition(pt))
+        {
+            Dot tempDot = _allDots[pt.x, pt.y];
             if (tempDot != null && tempDot.color == color) return true;
         }
         
