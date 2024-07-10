@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using DG.Tweening;
 using Random = UnityEngine.Random;
+using UnityEngine.Events;
 
 public enum GameState
 {
@@ -42,14 +43,28 @@ public class Board : MonoBehaviour
     public Score scoreManager;
     public ObjectPool objectPoolManager;
 
+    public event UnityAction EndPlayAction;
+
     private void Awake()
     {
-        InitObjectPool();
+        EndPlayAction += EndPlay;
+        // InitObjectPool();
     }
 
     void Start()
     {
+        // SetUpDots();
+    }
+
+    public void InitPlay()
+    {
+        InitObjectPool();
         SetUpDots();
+    }
+
+    public void EndPlay()
+    {
+        ReturnAllDots();
     }
 
     private void InitObjectPool()
@@ -62,6 +77,16 @@ public class Board : MonoBehaviour
             _colorParents.Add(colorParent);
 
             objectPoolManager.InitPool(address, initialPoolSize, colorParent);
+        }
+    }
+
+    private void ReturnAllDots()
+    {
+        foreach(var pt in ForAllDots())
+        {
+            Dot dot = GetDotFromBoard(pt);
+            objectPoolManager.ReturnToPool(dot, dot.address);
+            SetDotFromBoard(pt, null);
         }
     }
 
@@ -105,7 +130,7 @@ public class Board : MonoBehaviour
                 {
                     // match된 dot 삭제
                     Vector2Int tempPosition = dot.position;
-                    objectPoolManager.ReturnToPool(GetDotFromBoard(tempPosition), GetDotFromBoard(tempPosition).address);
+                    objectPoolManager.ReturnToPool(dot, dot.address);
                     SetDotFromBoard(tempPosition, null);
 
                     // 삭제된 dot 다시 생성
@@ -178,6 +203,7 @@ public class Board : MonoBehaviour
         {
             // 진행이 불가능하다면?
             Debug.Log("cannot match");
+            EndPlayAction?.Invoke();
         }
     }
 
