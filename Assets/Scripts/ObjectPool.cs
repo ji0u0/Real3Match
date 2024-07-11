@@ -7,15 +7,14 @@ public class ObjectPool : MonoBehaviour
 {
     private readonly Dictionary<string, Queue<MonoBehaviour>> _pool = new Dictionary<string, Queue<MonoBehaviour>>(); // 프리팹 주소 & 오브젝트
     
-    public void InitPool (string address, int initialSize, GameObject transformParent)
+    public void InitPool (string address, GameObject prefab, int initialSize, GameObject transformParent)
     {
         if (_pool.ContainsKey(address))
         {
-            Debug.LogWarning("Pool already initialized at " + address);
+            // Debug.LogWarning("Pool already initialized at " + address);
             return;
         }
 
-        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(address);
         if (prefab == null)
         {
             Debug.LogError("Prefab not found at " + address);
@@ -34,7 +33,7 @@ public class ObjectPool : MonoBehaviour
         }
     }
 
-    public T GetObject<T>(string address) where T : MonoBehaviour
+    public T GetObject<T>(string address, GameObject prefab) where T : MonoBehaviour
     {
         if (!_pool.ContainsKey(address))
         {
@@ -50,7 +49,6 @@ public class ObjectPool : MonoBehaviour
         else
         {
             // 부족하면 추가
-            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(address);
             if (prefab != null)
             {
                 GameObject instantiatedObject = Instantiate(prefab);

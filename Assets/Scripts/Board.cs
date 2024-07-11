@@ -21,7 +21,8 @@ public class Board : MonoBehaviour
     [Header("Assets")]
     public int initialPoolSize = 10;
     public string searchFolderAddress = "Assets/Prefabs/Dots";
-    public List<string> assetAddresses = new List<string>(); // 프리팹 주소
+    public List<string> dotAddresses = new List<string>(); // 프리팹 주소
+    public List<GameObject> DotPrefabs = new List<GameObject>(); // 프리팹
     private List<GameObject> _colorParents = new List<GameObject>(); // 부모 오브젝트
 
     [Header("Dots")]
@@ -69,14 +70,15 @@ public class Board : MonoBehaviour
 
     private void InitObjectPool()
     {
-        for (int i = 0; i < assetAddresses.Count; i++)
+        for (int i = 0; i < dotAddresses.Count; i++)
         {
-            string address = assetAddresses[i];
+            string address = dotAddresses[i];
+            GameObject prefab = DotPrefabs[i];
             DotColor color = (DotColor)i;
             GameObject colorParent = new GameObject(color.ToString() + " Pool");
             _colorParents.Add(colorParent);
 
-            objectPoolManager.InitPool(address, initialPoolSize, colorParent);
+            objectPoolManager.InitPool(address, prefab, initialPoolSize, colorParent);
         }
     }
 
@@ -92,10 +94,11 @@ public class Board : MonoBehaviour
 
     private Dot GetDotFromPool()
     {
-        int randomIndex = Random.Range(0, assetAddresses.Count);
-        string address = assetAddresses[randomIndex];
+        int randomIndex = Random.Range(0, dotAddresses.Count);
+        string address = dotAddresses[randomIndex];
+        GameObject prefab = DotPrefabs[randomIndex];
 
-        Dot piece = objectPoolManager.GetObject<Dot>(address);
+        Dot piece = objectPoolManager.GetObject<Dot>(address, prefab);
         piece.transform.SetParent(_colorParents[randomIndex].transform);
         piece.MouseDownAction = MouseDown;
         piece.MouseUpAction = MouseUp;
@@ -202,7 +205,7 @@ public class Board : MonoBehaviour
         else
         {
             // 진행이 불가능하다면?
-            Debug.Log("cannot match");
+            // Debug.Log("cannot match");
             EndPlayAction?.Invoke();
         }
     }

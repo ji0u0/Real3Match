@@ -6,19 +6,13 @@ using UnityEngine.Events;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
-public class Title : MonoBehaviour
+public class StartPanel : MonoBehaviour
 {
     [Header("UI")]
-    public Text titleText;
     public Button playButton;
     public Text playText;
     public Button quitButton;
     public Text quitText;
-
-    [Header("Name")]
-    public string titleName = "Do-Do-Dot";
-    
-    [Header("Color")]
     public Color textColor = new Color(50f / 255f, 50f / 255f, 50f / 255f, 255f / 255f);
 
     public event UnityAction OnClickPlayButtonAction;
@@ -26,8 +20,6 @@ public class Title : MonoBehaviour
 
     private void Start()
     {
-        titleText.text = titleName;
-
         playButton.onClick.AddListener(OnClickPlayButtonAction);
         AddEventTrigger(playButton, EventTriggerType.PointerDown, PointerDownPlayButton);
         AddEventTrigger(playButton, EventTriggerType.PointerUp, PointerUpPlayButton);

@@ -30,6 +30,13 @@ public class Score : MonoBehaviour
         _score += additionalScore;
     }
 
+    public int GetAndResetScore()
+    {
+        int currentScore = _score;
+        _score = 0;
+        return currentScore;
+    }
+
     public int returnScoreByMatchCount(int serialDotCount)
     {
         if (serialDotCount == 3)

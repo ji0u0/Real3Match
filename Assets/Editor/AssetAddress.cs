@@ -15,7 +15,8 @@ public class AssetAddress : Editor
             return;
         }
 
-        board.assetAddresses = new List<string>();
+        board.dotAddresses = new List<string>();
+        board.DotPrefabs = new List<GameObject>();
         string[] guids = AssetDatabase.FindAssets("t:Prefab", new[] {board.searchFolderAddress});
 
         foreach (string guid in guids)
@@ -26,7 +27,8 @@ public class AssetAddress : Editor
 
             if (dot != null)
             {
-                board.assetAddresses.Add(path);
+                board.dotAddresses.Add(path);
+                board.DotPrefabs.Add(prefab);
                 // Debug.Log(board.assetAddresses[dot.color]);
                 EditorUtility.SetDirty(board);
             }

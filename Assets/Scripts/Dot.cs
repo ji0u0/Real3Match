@@ -8,6 +8,7 @@ public enum DotColor
     blue,
     coral,
     green,
+    orange,
     pink,
     purple,
     white,
